@@ -1,0 +1,1629 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LAKOTA-GUEYO v2 — Gestion Parc & Carburant</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --bg:#080b0f;--bg2:#0f1318;--bg3:#161c24;--bg4:#1c2430;
+  --border:#1a2130;--border2:#222d3a;
+  --accent:#f5a623;--accent2:#e8891a;--dim:rgba(245,166,35,.08);
+  --green:#22c55e;--red:#ef4444;--blue:#3b82f6;
+  --cyan:#06b6d4;--purple:#a855f7;--amber:#f59e0b;
+  --text:#dde4ee;--text2:#8fa3b8;--text3:#3d5166;--text4:#1e2a38;
+  --sidebar:248px;--hdr:52px;--r:10px;--rs:6px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13.5px;overflow-x:hidden;}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* ── AUTH ── */
+#auth-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999;}
+.auth-card{background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:36px;width:400px;max-width:95vw;}
+.auth-logo{font-family:'Bebas Neue';font-size:26px;letter-spacing:3px;color:var(--accent);}
+.auth-sub{font-size:11px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:24px;margin-top:3px;}
+.auth-tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:20px;}
+.auth-tab{padding:8px 14px;font-size:13px;cursor:pointer;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .12s;}
+.auth-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.auth-err{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:8px;padding:9px 13px;font-size:12px;color:var(--red);margin-bottom:12px;display:none;}
+.auth-err.show{display:block;}
+.auth-ok{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:8px;padding:9px 13px;font-size:12px;color:var(--green);margin-bottom:12px;display:none;}
+.auth-ok.show{display:block;}
+
+/* ── SIDEBAR ── */
+#sidebar{position:fixed;top:0;left:0;width:var(--sidebar);height:100vh;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:100;transition:transform .25s;overflow-y:auto;}
+.logo-area{padding:16px 14px 12px;border-bottom:1px solid var(--border);}
+.logo-name{font-family:'Bebas Neue';font-size:19px;letter-spacing:2px;color:var(--accent);}
+.logo-sub{font-size:9px;color:var(--text3);letter-spacing:1.2px;text-transform:uppercase;margin-top:2px;}
+.logo-date{font-size:9px;color:var(--text3);font-family:'DM Mono';margin-top:5px;}
+.nav-section{padding:6px 0;}
+.nav-label{font-size:9px;letter-spacing:1.8px;text-transform:uppercase;color:var(--text4);padding:6px 14px 3px;font-weight:600;}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:pointer;color:var(--text2);font-size:12.5px;font-weight:500;border-left:2px solid transparent;transition:all .12s;user-select:none;}
+.nav-item:hover{color:var(--text);background:rgba(255,255,255,.025);}
+.nav-item.active{color:var(--accent);background:var(--dim);border-left-color:var(--accent);}
+.nav-icon{width:15px;text-align:center;font-size:13px;flex-shrink:0;}
+.nav-badge{margin-left:auto;background:var(--red);color:#fff;font-size:9px;border-radius:10px;padding:1px 5px;font-weight:700;}
+.nav-badge.warn{background:var(--amber);color:#000;}
+.user-chip{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:8px;background:var(--bg3);margin:8px 10px 4px;}
+.u-av{width:26px;height:26px;border-radius:50%;background:var(--accent);color:#000;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0;}
+.u-name{font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.u-role{font-size:10px;color:var(--text3);}
+.sidebar-foot{margin-top:auto;padding:10px 14px;border-top:1px solid var(--border);font-size:10px;color:var(--text3);}
+.rt-dot{display:inline-flex;align-items:center;gap:5px;font-size:10px;}
+.rt-dot::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 5px var(--green);display:inline-block;}
+.rt-dot.off::before{background:var(--red);box-shadow:0 0 5px var(--red);}
+
+/* ── MAIN ── */
+#main{margin-left:var(--sidebar);min-height:100vh;display:flex;flex-direction:column;}
+#header{height:var(--hdr);background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 18px;gap:10px;position:sticky;top:0;z-index:50;}
+.hdr-title{font-family:'Bebas Neue';font-size:16px;letter-spacing:1.5px;flex:1;}
+.hdr-sync{font-size:10px;color:var(--text3);font-family:'DM Mono';}
+.hdr-sync.loading{color:var(--accent);}
+.search-box{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--rs);padding:6px 11px;color:var(--text);font-family:inherit;font-size:12px;width:190px;outline:none;transition:border-color .15s;}
+.search-box:focus{border-color:var(--accent);}
+.search-box::placeholder{color:var(--text3);}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:var(--rs);font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;border:none;transition:all .12s;}
+.btn-primary{background:var(--accent);color:#000;}.btn-primary:hover{background:var(--accent2);}
+.btn-ghost{background:var(--bg3);color:var(--text);border:1px solid var(--border2);}.btn-ghost:hover{background:var(--border2);}
+.btn-sm{padding:4px 8px;font-size:11px;}
+.btn-ok{background:rgba(34,197,94,.1);color:var(--green);border:1px solid rgba(34,197,94,.15);}
+.btn-danger{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.15);}
+.btn-icon{padding:4px 6px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--rs);cursor:pointer;font-size:12px;color:var(--text2);line-height:1;transition:all .12s;}
+.btn-icon:hover{color:var(--text);background:var(--border2);}
+
+/* ── LAYOUT ── */
+#content{padding:16px;flex:1;}
+.page{display:none;}.page.active{display:block;}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+.row3{display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:14px;}
+@media(max-width:900px){.row2,.row3{grid-template-columns:1fr;}}
+
+/* ── KPI ── */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:10px;margin-bottom:16px;}
+.kpi{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;position:relative;overflow:hidden;}
+.kpi::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--kc,var(--accent));}
+.kpi-label{font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
+.kpi-val{font-family:'Bebas Neue';font-size:34px;letter-spacing:1px;color:var(--kc,var(--accent));line-height:1;}
+.kpi-sub{font-size:10.5px;color:var(--text3);margin-top:2px;}
+.kpi-trend{font-size:10.5px;margin-top:3px;}
+.kpi-trend.ok{color:var(--green);}.kpi-trend.ko{color:var(--red);}
+.kpi-trend.warn{color:var(--amber);}
+
+/* ── PANEL ── */
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:14px;}
+.panel-hdr{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--border);}
+.panel-title{font-size:12px;font-weight:600;}
+.panel-body{padding:14px;}
+
+/* ── TABLE ── */
+.tbl-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;}
+thead th{padding:8px 12px;text-align:left;font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border);white-space:nowrap;}
+tbody td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.025);font-size:12px;vertical-align:middle;}
+tbody tr:hover td{background:rgba(255,255,255,.015);}
+tbody tr:last-child td{border-bottom:none;}
+.mono{font-family:'DM Mono';font-size:11px;}
+
+/* ── BADGES ── */
+.badge{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600;white-space:nowrap;}
+.badge::before{content:'●';font-size:6px;}
+.b-ok{background:rgba(34,197,94,.1);color:var(--green);}
+.b-panne{background:rgba(239,68,68,.1);color:var(--red);}
+.b-maint{background:rgba(245,166,35,.1);color:var(--amber);}
+.b-info{background:rgba(59,130,246,.1);color:var(--blue);}
+.b-stand{background:rgba(107,114,128,.1);color:#6b7280;}
+.tag{display:inline-block;padding:2px 6px;border-radius:4px;font-size:9.5px;border:1px solid var(--border2);color:var(--text2);font-family:'DM Mono';}
+
+/* ── RATIO BADGE ── */
+.ratio-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;font-family:'DM Mono';}
+.ratio-ok{background:rgba(34,197,94,.1);color:var(--green);border:1px solid rgba(34,197,94,.2);}
+.ratio-warn{background:rgba(245,158,11,.1);color:var(--amber);border:1px solid rgba(245,158,11,.2);}
+.ratio-danger{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.2);}
+.ratio-neutral{background:rgba(255,255,255,.05);color:var(--text3);border:1px solid var(--border);}
+
+/* ── FILTER ── */
+.filter-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px;}
+.chip{padding:4px 10px;border-radius:20px;border:1px solid var(--border2);font-size:11px;cursor:pointer;background:var(--bg3);color:var(--text2);transition:all .12s;user-select:none;}
+.chip.active,.chip:hover{background:var(--dim);border-color:rgba(245,166,35,.25);color:var(--accent);}
+.chip.danger{border-color:rgba(239,68,68,.3);color:var(--red);}
+.chip.danger.active{background:rgba(239,68,68,.08);}
+.fbar-right{margin-left:auto;display:flex;gap:6px;}
+
+/* ── BARS ── */
+.bars{display:flex;flex-direction:column;gap:7px;}
+.bar-row{display:flex;align-items:center;gap:8px;}
+.bar-lbl{width:68px;font-size:10.5px;color:var(--text2);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0;}
+.bar-track{flex:1;background:rgba(255,255,255,.04);border-radius:3px;height:19px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:3px;display:flex;align-items:center;justify-content:flex-end;padding-right:5px;transition:width .7s ease;}
+.bar-num{font-size:10px;font-family:'DM Mono';color:rgba(0,0,0,.65);font-weight:600;}
+
+/* ── DONUT ── */
+.donut-wrap{display:flex;align-items:center;gap:14px;}
+.donut-legend{display:flex;flex-direction:column;gap:6px;flex:1;}
+.leg-row{display:flex;align-items:center;gap:6px;font-size:11px;}
+.leg-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0;}
+.leg-count{margin-left:auto;font-family:'DM Mono';font-size:10.5px;color:var(--text3);}
+
+/* ── ALERTS ── */
+.alert-list{display:flex;flex-direction:column;gap:6px;}
+.alert-item{display:flex;align-items:flex-start;gap:9px;padding:9px 12px;border-radius:var(--rs);background:rgba(255,255,255,.015);border:1px solid var(--border);}
+.alert-item.danger{border-color:rgba(239,68,68,.2);background:rgba(239,68,68,.03);}
+.alert-item.warn{border-color:rgba(245,158,11,.2);background:rgba(245,158,11,.03);}
+.alert-item.info{border-color:rgba(59,130,246,.2);background:rgba(59,130,246,.03);}
+.alert-icon{font-size:14px;flex-shrink:0;margin-top:1px;}
+.alert-body{flex:1;}
+.alert-title{font-size:11.5px;font-weight:600;margin-bottom:2px;}
+.alert-desc{font-size:11px;color:var(--text2);line-height:1.5;}
+.alert-time{font-size:9.5px;color:var(--text3);font-family:'DM Mono';margin-top:2px;}
+
+/* ── TABS ── */
+.tabs{display:flex;gap:1px;border-bottom:1px solid var(--border);margin-bottom:14px;}
+.tab{padding:8px 14px;font-size:12px;cursor:pointer;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .12s;font-weight:500;}
+.tab:hover{color:var(--text2);}.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+/* ── PROGRESS ── */
+.prog{height:5px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden;margin-top:4px;}
+.prog-fill{height:100%;border-radius:3px;}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:200;opacity:0;pointer-events:none;transition:opacity .18s;}
+.modal-overlay.open{opacity:1;pointer-events:all;}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:20px;width:540px;max-width:95vw;max-height:88vh;overflow-y:auto;transform:translateY(10px);transition:transform .18s;}
+.modal-overlay.open .modal{transform:translateY(0);}
+.modal-title{font-family:'Bebas Neue';font-size:17px;letter-spacing:1.5px;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+.modal-close{cursor:pointer;color:var(--text3);font-size:17px;line-height:1;}.modal-close:hover{color:var(--text);}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.fg{display:flex;flex-direction:column;gap:3px;}.fg.full{grid-column:1/-1;}
+.fg-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+label{font-size:9.5px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;}
+input,select,textarea{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--rs);padding:7px 10px;color:var(--text);font-family:inherit;font-size:12px;outline:none;transition:border-color .15s;}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);}
+select option{background:var(--bg2);}
+textarea{resize:vertical;min-height:60px;}
+.form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;}
+.form-sep{grid-column:1/-1;border-top:1px solid var(--border);padding-top:10px;margin-top:4px;font-size:10px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;}
+.form-hint{font-size:10px;color:var(--text3);margin-top:2px;font-style:italic;}
+.calc-preview{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--rs);padding:10px 12px;font-size:12px;color:var(--text2);grid-column:1/-1;display:none;}
+.calc-preview.show{display:block;}
+.calc-preview strong{color:var(--accent);}
+
+/* ── RATIO METER ── */
+.ratio-meter{position:relative;height:8px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden;margin:4px 0;}
+.ratio-meter-fill{height:100%;border-radius:4px;transition:width .5s ease;}
+.ratio-labels{display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-top:2px;}
+
+/* ── SUMMARY ── */
+.summary-bar{background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);padding:6px 12px;font-size:11.5px;color:var(--text2);margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+
+/* ── LOADING ── */
+.loading-overlay{position:fixed;inset:0;background:rgba(8,11,15,.7);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:800;}
+.spinner{width:34px;height:34px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:9px 16px;font-size:12px;z-index:500;transition:transform .25s ease;box-shadow:0 6px 24px rgba(0,0,0,.4);display:flex;align-items:center;gap:8px;}
+#toast.show{transform:translateX(-50%) translateY(0);}
+#toast.ok{border-color:rgba(34,197,94,.3);}.#toast.err{border-color:rgba(239,68,68,.3);}
+
+/* ── STAT ROW ── */
+.stat-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);}
+.stat-row:last-child{border-bottom:none;}
+
+/* ── HL ── */
+.hl{background:rgba(245,166,35,.18);border-radius:2px;}
+
+/* ── MOBILE ── */
+#menu-btn{display:none;position:fixed;bottom:16px;right:16px;width:44px;height:44px;border-radius:50%;background:var(--accent);color:#000;font-size:19px;border:none;cursor:pointer;z-index:300;box-shadow:0 4px 18px rgba(245,166,35,.4);align-items:center;justify-content:center;}
+@media(max-width:768px){
+  #sidebar{transform:translateX(-100%);}#sidebar.open{transform:translateX(0);}
+  #main{margin-left:0;}#menu-btn{display:flex;}
+  .kpi-row{grid-template-columns:repeat(2,1fr);}
+  .form-grid,.fg-3{grid-template-columns:1fr;}.fg.full{grid-column:1;}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ AUTH ══ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">LAKOTA-GUEYO</div>
+    <div class="auth-sub">Gestion Parc & Carburant · v2.0</div>
+    <div class="auth-tabs">
+      <div class="auth-tab active" onclick="authTab('login',this)">Connexion</div>
+      <div class="auth-tab" onclick="authTab('register',this)">Créer compte</div>
+    </div>
+    <div class="auth-err" id="auth-err"></div>
+    <div class="auth-ok" id="auth-ok"></div>
+    <div id="auth-login">
+      <div class="fg" style="margin-bottom:10px"><label>Email</label><input type="email" id="login-email" placeholder="votre@email.com" autocomplete="email"></div>
+      <div class="fg" style="margin-bottom:18px"><label>Mot de passe</label><input type="password" id="login-pwd" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="doLogin()">Se connecter →</button>
+    </div>
+    <div id="auth-register" style="display:none">
+      <div class="form-grid">
+        <div class="fg"><label>Nom</label><input id="reg-nom" placeholder="Nom"></div>
+        <div class="fg"><label>Prénom</label><input id="reg-prenom" placeholder="Prénom"></div>
+        <div class="fg full"><label>Email</label><input type="email" id="reg-email" placeholder="votre@email.com"></div>
+        <div class="fg full"><label>Mot de passe (min. 8 car.)</label><input type="password" id="reg-pwd" placeholder="••••••••"></div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:16px" onclick="doRegister()">Créer le compte →</button>
+    </div>
+    <div style="margin-top:14px;font-size:10px;color:var(--text3);text-align:center">Sécurisé par Supabase Auth</div>
+  </div>
+</div>
+
+<!-- ══ LOADING ══ -->
+<div class="loading-overlay" id="loading" style="display:none"><div class="spinner"></div></div>
+
+<!-- ══ SIDEBAR ══ -->
+<nav id="sidebar" style="display:none">
+  <div class="logo-area">
+    <div class="logo-name">LAKOTA-GUEYO</div>
+    <div class="logo-sub">Gestion Parc & Carburant</div>
+    <div class="logo-date" id="sidebar-date"></div>
+  </div>
+  <div style="padding:8px 8px 4px">
+    <div class="user-chip">
+      <div class="u-av" id="u-av">?</div>
+      <div><div class="u-name" id="u-name">—</div><div class="u-role" id="u-role">—</div></div>
+    </div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Vue globale</div>
+    <div class="nav-item active" onclick="go('dashboard',this)"><span class="nav-icon">📊</span>Tableau de bord</div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Parc Matériel</div>
+    <div class="nav-item" onclick="go('parc',this)"><span class="nav-icon">🏗️</span>Inventaire (<span id="nav-total">—</span>)</div>
+    <div class="nav-item" onclick="go('pannes',this)"><span class="nav-icon">🔴</span>Pannes<span class="nav-badge" id="badge-pannes">—</span></div>
+    <div class="nav-item" onclick="go('affectations',this)"><span class="nav-icon">👤</span>Affectations</div>
+    <div class="nav-item" onclick="go('mouvements',this)"><span class="nav-icon">🔄</span>Mouvements</div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Carburant</div>
+    <div class="nav-item" onclick="go('gasoil',this)"><span class="nav-icon">⛽</span>Distribution</div>
+    <div class="nav-item" onclick="go('ratios',this)"><span class="nav-icon">📐</span>Ratios & KPIs<span class="nav-badge warn" id="badge-anomalies">—</span></div>
+    <div class="nav-item" onclick="go('appros',this)"><span class="nav-icon">🚛</span>Approvision.</div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Analyses</div>
+    <div class="nav-item" onclick="go('rapports',this)"><span class="nav-icon">📋</span>Rapports</div>
+    <div class="nav-item" onclick="go('alertes',this)"><span class="nav-icon">🔔</span>Alertes<span class="nav-badge" id="badge-alertes">—</span></div>
+  </div>
+  <div class="sidebar-foot">
+    <div class="rt-dot" id="rt-status">Temps réel</div>
+    <div style="margin-top:6px"><button class="btn btn-ghost btn-sm" onclick="doLogout()" style="width:100%;justify-content:center">↩ Déconnexion</button></div>
+  </div>
+</nav>
+
+<!-- ══ MAIN ══ -->
+<div id="main" style="display:none">
+  <header id="header">
+    <div class="hdr-title" id="page-title">TABLEAU DE BORD</div>
+    <div class="hdr-sync" id="sync-st">Chargement…</div>
+    <input class="search-box" id="search-input" placeholder="🔍 Code, type, affectation…" oninput="globalSearch(this.value)">
+    <button class="btn btn-primary" onclick="openAddModal()">+ Ajouter</button>
+  </header>
+  <div id="content">
+
+    <!-- ══════ DASHBOARD ══════ -->
+    <div class="page active" id="page-dashboard">
+      <div class="kpi-row">
+        <div class="kpi" style="--kc:var(--accent)"><div class="kpi-label">Total Équipements</div><div class="kpi-val" id="kpi-total">—</div><div class="kpi-sub" id="kpi-dateref">Point du —</div></div>
+        <div class="kpi" style="--kc:var(--green)"><div class="kpi-label">Opérationnels</div><div class="kpi-val" id="kpi-ok">—</div><div class="kpi-trend ok" id="kpi-pct">—</div></div>
+        <div class="kpi" style="--kc:var(--red)"><div class="kpi-label">En Panne</div><div class="kpi-val" id="kpi-panne">—</div><div class="kpi-trend ko" id="kpi-ppct">—</div></div>
+        <div class="kpi" style="--kc:var(--amber)"><div class="kpi-label">Anomalies Ratio</div><div class="kpi-val" id="kpi-anomalies">—</div><div class="kpi-sub">Distributions suspectes</div></div>
+        <div class="kpi" style="--kc:var(--blue)"><div class="kpi-label">Engins Lourds</div><div class="kpi-val" id="kpi-el">—</div></div>
+        <div class="kpi" style="--kc:var(--cyan)"><div class="kpi-label">Camions</div><div class="kpi-val" id="kpi-ct">—</div></div>
+        <div class="kpi" style="--kc:var(--purple)"><div class="kpi-label">Véhicules</div><div class="kpi-val" id="kpi-vl">—</div></div>
+        <div class="kpi" style="--kc:#84cc16"><div class="kpi-label">GE & Motos</div><div class="kpi-val" id="kpi-gm">—</div></div>
+      </div>
+      <div class="row3">
+        <div class="panel">
+          <div class="panel-hdr"><div class="panel-title">🔴 Pannes actives</div><button class="btn btn-ghost btn-sm" onclick="go('pannes',null)">Voir →</button></div>
+          <div class="tbl-wrap"><table><thead><tr><th>Code</th><th>Type</th><th>Affectation</th><th>Obs.</th><th></th></tr></thead><tbody id="panne-dash"></tbody></table></div>
+        </div>
+        <div class="panel">
+          <div class="panel-hdr"><div class="panel-title">Composition Parc</div></div>
+          <div class="panel-body">
+            <div class="donut-wrap">
+              <svg width="95" height="95" viewBox="0 0 100 100" style="flex-shrink:0">
+                <circle cx="50" cy="50" r="38" fill="none" stroke="rgba(255,255,255,.04)" stroke-width="14"/>
+                <circle id="d1" cx="50" cy="50" r="38" fill="none" stroke-width="14" transform="rotate(-90 50 50)"/>
+                <circle id="d2" cx="50" cy="50" r="38" fill="none" stroke-width="14" transform="rotate(-90 50 50)"/>
+                <circle id="d3" cx="50" cy="50" r="38" fill="none" stroke-width="14" transform="rotate(-90 50 50)"/>
+                <circle id="d4" cx="50" cy="50" r="38" fill="none" stroke-width="14" transform="rotate(-90 50 50)"/>
+                <circle id="d5" cx="50" cy="50" r="38" fill="none" stroke-width="14" transform="rotate(-90 50 50)"/>
+                <circle id="d6" cx="50" cy="50" r="38" fill="none" stroke-width="14" transform="rotate(-90 50 50)"/>
+                <text x="50" y="46" text-anchor="middle" font-family="Bebas Neue" font-size="19" fill="#dde4ee" id="donut-n">—</text>
+                <text x="50" y="58" text-anchor="middle" font-size="8" fill="#3d5166">engins</text>
+              </svg>
+              <div class="donut-legend" id="donut-leg"></div>
+            </div>
+            <div style="margin-top:12px">
+              <div class="stat-row"><span style="font-size:11.5px;color:var(--text2)">Disponibilité</span><strong style="color:var(--green)" id="d-dispo">—</strong></div>
+              <div class="stat-row"><span style="font-size:11.5px;color:var(--text2)">Pannes</span><strong style="color:var(--red)" id="d-pannes">—</strong></div>
+              <div class="stat-row"><span style="font-size:11.5px;color:var(--text2)">Anomalies ratio</span><strong style="color:var(--amber)" id="d-anomalies">—</strong></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="panel"><div class="panel-hdr"><div class="panel-title">📊 Effectifs par type</div></div><div class="panel-body"><div class="bars" id="type-bars"></div></div></div>
+        <div class="panel"><div class="panel-hdr"><div class="panel-title">🎯 Par activité</div></div><div class="panel-body"><div class="bars" id="act-bars"></div></div></div>
+      </div>
+    </div>
+
+    <!-- ══════ PARC ══════ -->
+    <div class="page" id="page-parc">
+      <div class="filter-bar" id="parc-chips">
+        <div class="chip active" onclick="setF('',this)">Tous</div>
+        <div class="chip" onclick="setF('ENGIN_LOURD',this)">Engins Lourds</div>
+        <div class="chip" onclick="setF('CAMION_TRANSPORT',this)">Camions</div>
+        <div class="chip" onclick="setF('VEHICULE_LEGER',this)">Véhicules</div>
+        <div class="chip" onclick="setF('MOTO',this)">Motos</div>
+        <div class="chip" onclick="setF('GROUPE_ELECTROGENE',this)">Groupes Élec.</div>
+        <div class="chip" onclick="setF('CUVE_GASOIL',this)">Cuves</div>
+        <div class="chip danger" onclick="setE('PANNE',this)">⚠ Pannes</div>
+        <div class="fbar-right">
+          <input class="search-box" style="width:140px" id="parc-search" placeholder="Filtrer…" oninput="setS(this.value)">
+          <button class="btn btn-primary btn-sm" onclick="openModalMateriel()">+ Ajouter</button>
+        </div>
+      </div>
+      <div id="parc-summary" class="summary-bar" style="display:none"></div>
+      <div class="panel">
+        <div class="panel-hdr">
+          <div class="panel-title">Inventaire Parc — LAKOTA-GUEYO | 08 Mai 2026</div>
+          <div style="font-size:9.5px;color:var(--text3)">Dir. Projet: M. TIHA JEAN-MARC · ERG.GM 02</div>
+        </div>
+        <div class="tbl-wrap">
+          <table><thead><tr><th>#</th><th>Code</th><th>Type</th><th>Marque</th><th>Catégorie</th><th>Date Mob.</th><th>Affectation</th><th>État</th><th>Ratio Réf.</th><th>Cpt. actuel</th><th>Actions</th></tr></thead>
+          <tbody id="parc-tbody"></tbody></table>
+        </div>
+        <div id="parc-footer" style="padding:8px 12px;font-size:10.5px;color:var(--text3);border-top:1px solid var(--border)"></div>
+      </div>
+    </div>
+
+    <!-- ══════ PANNES ══════ -->
+    <div class="page" id="page-pannes">
+      <div class="kpi-row" style="grid-template-columns:repeat(4,1fr)">
+        <div class="kpi" style="--kc:var(--red)"><div class="kpi-label">Pannes Actives</div><div class="kpi-val" id="pk-total">—</div></div>
+        <div class="kpi" style="--kc:var(--amber)"><div class="kpi-label">Engins Lourds</div><div class="kpi-val" id="pk-el">—</div></div>
+        <div class="kpi" style="--kc:var(--blue)"><div class="kpi-label">Camions/VL</div><div class="kpi-val" id="pk-ct">—</div></div>
+        <div class="kpi" style="--kc:var(--purple)"><div class="kpi-label">Autres</div><div class="kpi-val" id="pk-other">—</div></div>
+      </div>
+      <div class="row2">
+        <div class="panel">
+          <div class="panel-hdr"><div class="panel-title">🔴 Pannes actives</div><button class="btn btn-primary btn-sm" onclick="openModalMaint()">+ Déclarer</button></div>
+          <div class="alert-list" id="panne-list" style="padding:12px;gap:6px;"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-hdr"><div class="panel-title">🔧 Maintenance planifiée</div></div>
+          <div class="panel-body"><div class="alert-list" id="maint-planned"></div></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-hdr"><div class="panel-title">Historique Interventions</div></div>
+        <div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Code</th><th>Type</th><th>Motif</th><th>Priorité</th><th>Statut</th><th>Ratio obs.</th><th></th></tr></thead>
+        <tbody id="maint-tbody"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- ══════ AFFECTATIONS ══════ -->
+    <div class="page" id="page-affectations">
+      <div class="row2">
+        <div class="panel"><div class="panel-hdr"><div class="panel-title">📊 Par activité</div></div><div class="panel-body"><div class="bars" id="aff-bars"></div></div></div>
+        <div class="panel"><div class="panel-hdr"><div class="panel-title">Récapitulatif</div></div>
+          <div class="tbl-wrap"><table><thead><tr><th>Affectation</th><th>Nb</th><th>%</th></tr></thead><tbody id="aff-recap"></tbody></table></div>
+        </div>
+      </div>
+      <div class="panel"><div class="panel-hdr"><div class="panel-title">Liste complète</div></div>
+        <div class="tbl-wrap"><table><thead><tr><th>#</th><th>Code</th><th>Type</th><th>Marque</th><th>Affectation</th><th>État</th><th>Date Mob.</th></tr></thead>
+        <tbody id="aff-tbody"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- ══════ MOUVEMENTS ══════ -->
+    <div class="page" id="page-mouvements">
+      <div class="filter-bar"><div class="fbar-right"><button class="btn btn-primary btn-sm" onclick="openModalMvt()">+ Mouvement</button></div></div>
+      <div class="panel"><div class="panel-hdr"><div class="panel-title">Historique Mouvements</div></div>
+        <div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Code</th><th>Type</th><th>Mouvement</th><th>Avant</th><th>Après</th><th>Note</th><th>Par</th></tr></thead>
+        <tbody id="mvt-tbody"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- ══════ GASOIL — DISTRIBUTION ══════ -->
+    <div class="page" id="page-gasoil">
+      <div class="kpi-row" id="gasoil-kpis" style="margin-bottom:14px"></div>
+      <div class="tabs">
+        <div class="tab active" onclick="gTab('saisie',this)">Saisie Distribution</div>
+        <div class="tab" onclick="gTab('hist',this)">Historique</div>
+        <div class="tab" onclick="gTab('engin',this)">Par Engin</div>
+        <div class="tab" onclick="gTab('anomalies',this)">Anomalies</div>
+      </div>
+      <div id="tab-saisie">
+        <div class="row2">
+          <div class="panel">
+            <div class="panel-hdr"><div class="panel-title">+ Nouvelle Distribution</div><button class="btn btn-primary btn-sm" onclick="saveDist()">Enregistrer</button></div>
+            <div class="panel-body">
+              <div class="form-grid">
+                <div class="fg"><label>Date</label><input type="date" id="d-date"></div>
+                <div class="fg"><label>Cuve</label><select id="d-cuve"></select></div>
+                <div class="fg"><label>Engin</label><select id="d-code" onchange="onEquipSelect()"><option value="">Sélectionner…</option></select></div>
+                <div class="fg"><label>Quantité (L)</label><input type="number" id="d-qte" placeholder="ex: 300" min="1" oninput="calcPreview()"></div>
+                <div class="fg"><label>Bénéficiaire</label><input id="d-benef" placeholder="Chauffeur / Opérateur"></div>
+                <div class="fg"><label>Activité</label><input id="d-motif" placeholder="ex: TERRASSEMENT…"></div>
+                <!-- Section ratio dynamique -->
+                <div class="form-sep" id="ratio-section" style="display:none">MODULE RATIO — <span id="ratio-type-label">—</span></div>
+                <div class="fg" id="cpt-debut-fg" style="display:none">
+                  <label id="cpt-debut-label">Compteur début</label>
+                  <input type="number" id="d-cpt-debut" placeholder="ex: 5 200" step="0.1" oninput="calcPreview()">
+                  <span class="form-hint" id="cpt-hint">Valeur actuelle engin</span>
+                </div>
+                <div class="fg" id="cpt-fin-fg" style="display:none">
+                  <label id="cpt-fin-label">Compteur fin</label>
+                  <input type="number" id="d-cpt-fin" placeholder="ex: 5 218" step="0.1" oninput="calcPreview()">
+                </div>
+                <div class="calc-preview" id="calc-preview"></div>
+              </div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-hdr"><div class="panel-title">Stocks Cuves</div></div>
+            <div class="panel-body" id="cuves-stocks"></div>
+          </div>
+        </div>
+      </div>
+      <div id="tab-hist" style="display:none">
+        <div class="panel"><div class="panel-hdr"><div class="panel-title">Historique Distributions</div></div>
+          <div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Code</th><th>Type</th><th>Qté (L)</th><th>Δ Cpt</th><th>Ratio</th><th>Réf.</th><th>Écart</th><th>Anomalie</th><th>Activité</th></tr></thead>
+          <tbody id="hist-tbody"></tbody></table></div>
+        </div>
+      </div>
+      <div id="tab-engin" style="display:none">
+        <div class="panel"><div class="panel-hdr"><div class="panel-title">Consommation & Ratio par Engin</div></div>
+          <div class="tbl-wrap"><table><thead><tr><th>Code</th><th>Type</th><th>Total L</th><th>Distribs</th><th>Δ total</th><th>Ratio moyen</th><th>Ratio réf.</th><th>Statut</th><th>Dernière distrib.</th></tr></thead>
+          <tbody id="engin-tbody"></tbody></table></div>
+        </div>
+      </div>
+      <div id="tab-anomalies" style="display:none">
+        <div class="panel"><div class="panel-hdr"><div class="panel-title">⚠ Distributions Anormales</div></div>
+          <div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Code</th><th>Type</th><th>Qté</th><th>Ratio obs.</th><th>Ratio réf.</th><th>Écart %</th><th>Bénéf.</th><th>Activité</th></tr></thead>
+          <tbody id="anomaly-tbody"></tbody></table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ RATIOS & KPIs ══════ -->
+    <div class="page" id="page-ratios">
+      <div class="kpi-row" style="grid-template-columns:repeat(4,1fr)">
+        <div class="kpi" style="--kc:var(--amber)"><div class="kpi-label">Distributions avec ratio</div><div class="kpi-val" id="rk-total">—</div></div>
+        <div class="kpi" style="--kc:var(--red)"><div class="kpi-label">Anomalies détectées</div><div class="kpi-val" id="rk-anomalies">—</div></div>
+        <div class="kpi" style="--kc:var(--green)"><div class="kpi-label">Engins conformes</div><div class="kpi-val" id="rk-ok">—</div></div>
+        <div class="kpi" style="--kc:var(--purple)"><div class="kpi-label">Maintenances auto</div><div class="kpi-val" id="rk-maints">—</div></div>
+      </div>
+      <div class="tabs">
+        <div class="tab active" onclick="rTab('top',this)">Top Consommateurs</div>
+        <div class="tab" onclick="rTab('engins',this)">Engins (L/h)</div>
+        <div class="tab" onclick="rTab('vehicules',this)">Véhicules (L/100km)</div>
+        <div class="tab" onclick="rTab('derive',this)">Dérive & Alertes</div>
+      </div>
+      <div id="rtab-top">
+        <div class="row2">
+          <div class="panel"><div class="panel-hdr"><div class="panel-title">🏆 Top 10 — Volume total (L)</div></div><div class="panel-body"><div class="bars" id="top-vol-bars"></div></div></div>
+          <div class="panel"><div class="panel-hdr"><div class="panel-title">📐 Pires ratios (vs référence)</div></div><div class="panel-body"><div class="bars" id="pire-ratio-bars"></div></div></div>
+        </div>
+        <div class="panel"><div class="panel-hdr"><div class="panel-title">Synthèse Ratios — Tous Engins</div></div>
+          <div class="tbl-wrap"><table><thead><tr><th>Code</th><th>Type</th><th>Mesure</th><th>Total L</th><th>Δ Total</th><th>Ratio moyen</th><th>Référence</th><th>Écart</th><th>Nb distrib.</th><th>Anomalies</th><th>Statut</th></tr></thead>
+          <tbody id="ratio-all-tbody"></tbody></table></div>
+        </div>
+      </div>
+      <div id="rtab-engins" style="display:none">
+        <div class="panel"><div class="panel-hdr"><div class="panel-title">Engins Lourds & Groupes — Ratios L/heure</div></div>
+          <div class="tbl-wrap"><table><thead><tr><th>Code</th><th>Type</th><th>Marque</th><th>Ratio réf. (L/h)</th><th>Ratio obs. (L/h)</th><th>Écart %</th><th>Heures totales</th><th>Litres totaux</th><th>Statut</th></tr></thead>
+          <tbody id="ratio-engin-tbody"></tbody></table></div>
+        </div>
+      </div>
+      <div id="rtab-vehicules" style="display:none">
+        <div class="panel"><div class="panel-hdr"><div class="panel-title">Véhicules & Camions — Ratios L/100km</div></div>
+          <div class="tbl-wrap"><table><thead><tr><th>Code</th><th>Type</th><th>Marque</th><th>Réf. (L/100km)</th><th>Obs. (L/100km)</th><th>Écart %</th><th>Km totaux</th><th>Litres totaux</th><th>Statut</th></tr></thead>
+          <tbody id="ratio-veh-tbody"></tbody></table></div>
+        </div>
+      </div>
+      <div id="rtab-derive" style="display:none">
+        <div class="panel"><div class="panel-hdr"><div class="panel-title">🚨 Alertes Dérive Carburant</div></div>
+          <div class="alert-list" id="derive-list" style="padding:14px;gap:7px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ APPROVISIONNEMENTS ══════ -->
+    <div class="page" id="page-appros">
+      <div class="filter-bar"><div class="fbar-right"><button class="btn btn-primary btn-sm" onclick="openModalAppro()">+ Approvision.</button></div></div>
+      <div class="panel"><div class="panel-hdr"><div class="panel-title">Historique Approvisionnements</div></div>
+        <div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Cuve</th><th>Cpt. Camion</th><th>Qté (L)</th><th>Stock avant</th><th>Stock après</th><th>Réceptionné par</th><th>Saisi par</th></tr></thead>
+        <tbody id="appro-tbody"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- ══════ RAPPORTS ══════ -->
+    <div class="page" id="page-rapports">
+      <div class="row2">
+        <div class="panel"><div class="panel-hdr"><div class="panel-title">📋 Générer un rapport</div></div>
+          <div class="panel-body"><div class="form-grid">
+            <div class="fg"><label>Type</label><select id="rpt-type"><option>Point Matériel Journalier</option><option>Ratios Carburant</option><option>État des Pannes</option><option>Suivi Distributions</option><option>Anomalies Carburant</option><option>Rapport Mensuel</option></select></div>
+            <div class="fg"><label>Catégorie</label><select id="rpt-cat"><option value="">Toutes</option><option value="ENGIN_LOURD">Engins Lourds</option><option value="CAMION_TRANSPORT">Camions</option><option value="VEHICULE_LEGER">Véhicules</option><option value="GROUPE_ELECTROGENE">GE</option></select></div>
+            <div class="fg"><label>État</label><select id="rpt-etat"><option value="">Tous</option><option value="BON">BON</option><option value="PANNE">PANNE</option></select></div>
+            <div class="fg"><label>Format</label><select><option>HTML</option><option>Impression</option></select></div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-ghost" onclick="exportCSV()">⬇ CSV</button>
+            <button class="btn btn-ghost" onclick="window.print()">🖨️ PDF</button>
+            <button class="btn btn-primary" onclick="generateReport()">Générer →</button>
+          </div></div>
+        </div>
+        <div class="panel"><div class="panel-hdr"><div class="panel-title">Récap. par catégorie</div></div>
+          <div class="tbl-wrap"><table><thead><tr><th>Catégorie</th><th>Total</th><th>BON</th><th>PANNE</th><th>Dispo</th></tr></thead>
+          <tbody id="recap-tbody"></tbody></table></div>
+        </div>
+      </div>
+      <div class="panel" id="report-out" style="display:none">
+        <div class="panel-hdr"><div class="panel-title" id="report-title">Rapport</div><button class="btn btn-ghost btn-sm" onclick="window.print()">🖨️</button></div>
+        <div class="panel-body" id="report-body"></div>
+      </div>
+    </div>
+
+    <!-- ══════ ALERTES ══════ -->
+    <div class="page" id="page-alertes">
+      <div class="kpi-row" style="grid-template-columns:repeat(4,1fr)">
+        <div class="kpi" style="--kc:var(--red)"><div class="kpi-label">Pannes</div><div class="kpi-val" id="ak-pannes">—</div></div>
+        <div class="kpi" style="--kc:var(--amber)"><div class="kpi-label">Ratio / Conso</div><div class="kpi-val" id="ak-ratio">—</div></div>
+        <div class="kpi" style="--kc:var(--blue)"><div class="kpi-label">Stock bas</div><div class="kpi-val" id="ak-stock">—</div></div>
+        <div class="kpi" style="--kc:var(--green)"><div class="kpi-label">Résolues</div><div class="kpi-val" id="ak-ok">—</div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-hdr"><div class="panel-title">🔔 Toutes les alertes</div><button class="btn btn-ghost btn-sm" onclick="markRead()">Tout marquer lu</button></div>
+        <div class="panel-body"><div class="alert-list" id="all-alerts"></div></div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- ══ MODALS ══ -->
+
+<!-- Matériel -->
+<div class="modal-overlay" id="modal-materiel">
+  <div class="modal">
+    <div class="modal-title">AJOUTER ÉQUIPEMENT <span class="modal-close" onclick="closeModal('modal-materiel')">✕</span></div>
+    <div class="form-grid">
+      <div class="fg"><label>Code</label><input id="m-code" placeholder="ex: BD16"></div>
+      <div class="fg"><label>Type d'Engin</label><input id="m-type" placeholder="ex: BULLDOZER"></div>
+      <div class="fg"><label>Marque</label><input id="m-marque" placeholder="ex: CATERPILLAR"></div>
+      <div class="fg"><label>Catégorie</label><select id="m-cat">
+        <option value="ENGIN_LOURD">Engin Lourd</option>
+        <option value="CAMION_TRANSPORT">Camion/Transport</option>
+        <option value="VEHICULE_LEGER">Véhicule Léger</option>
+        <option value="MOTO">Moto</option>
+        <option value="GROUPE_ELECTROGENE">Groupe Électrogène</option>
+        <option value="CUVE_GASOIL">Cuve Gasoil</option>
+        <option value="INSTALLATION">Installation</option>
+      </select></div>
+      <div class="fg"><label>Date Mobilisation</label><input type="date" id="m-date"></div>
+      <div class="fg"><label>État</label><select id="m-etat"><option value="BON">BON</option><option value="PANNE">PANNE</option><option value="STAND_BY">STAND BY</option></select></div>
+      <div class="fg"><label>Ratio réf. L/h (engins)</label><input type="number" id="m-ratio-lh" placeholder="ex: 18" step="0.1"></div>
+      <div class="fg"><label>Ratio réf. L/100km (VL)</label><input type="number" id="m-ratio-l100" placeholder="ex: 12" step="0.1"></div>
+      <div class="fg"><label>Compteur actuel (h ou km)</label><input type="number" id="m-cpt" placeholder="ex: 5 200" step="0.1"></div>
+      <div class="fg"><label>Tolérance écart (%)</label><input type="number" id="m-seuil" placeholder="20" value="20"></div>
+      <div class="fg full"><label>Affectation</label><input id="m-affect" placeholder="ex: TERRASSEMENT…"></div>
+      <div class="fg full"><label>Observation</label><input id="m-obs"></div>
+    </div>
+    <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal('modal-materiel')">Annuler</button><button class="btn btn-primary" onclick="saveMateriel()">Enregistrer</button></div>
+  </div>
+</div>
+
+<!-- Maintenance -->
+<div class="modal-overlay" id="modal-maint">
+  <div class="modal">
+    <div class="modal-title">DÉCLARER INTERVENTION <span class="modal-close" onclick="closeModal('modal-maint')">✕</span></div>
+    <div class="form-grid">
+      <div class="fg"><label>Date</label><input type="date" id="mn-date"></div>
+      <div class="fg"><label>Code Engin</label><select id="mn-code"><option value="">Sélectionner…</option></select></div>
+      <div class="fg"><label>Type</label><select id="mn-type">
+        <option value="PANNE_MECANIQUE">Panne mécanique</option>
+        <option value="PANNE_HYDRAULIQUE">Panne hydraulique</option>
+        <option value="PANNE_ELECTRIQUE">Panne électrique</option>
+        <option value="ENTRETIEN_PREVENTIF">Entretien préventif</option>
+        <option value="REVISION">Révision</option>
+        <option value="TRANSFERT_REPARATION">Transfert réparation</option>
+        <option value="ALERTE_RATIO">Alerte ratio carburant</option>
+      </select></div>
+      <div class="fg"><label>Priorité</label><select id="mn-prio"><option value="HAUTE">Haute</option><option value="NORMALE" selected>Normale</option><option value="BASSE">Basse</option></select></div>
+      <div class="fg full"><label>Description</label><textarea id="mn-desc" placeholder="Décrire la panne ou l'intervention…"></textarea></div>
+    </div>
+    <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal('modal-maint')">Annuler</button><button class="btn btn-primary" onclick="saveMaint()">Déclarer</button></div>
+  </div>
+</div>
+
+<!-- Mouvement -->
+<div class="modal-overlay" id="modal-mvt">
+  <div class="modal">
+    <div class="modal-title">MOUVEMENT <span class="modal-close" onclick="closeModal('modal-mvt')">✕</span></div>
+    <div class="form-grid">
+      <div class="fg"><label>Date</label><input type="date" id="mv-date"></div>
+      <div class="fg"><label>Engin</label><select id="mv-code"><option value="">Sélectionner…</option></select></div>
+      <div class="fg"><label>Type</label><select id="mv-type">
+        <option value="MOBILISATION">Mobilisation</option><option value="DEMOBILISATION">Démobilisation</option>
+        <option value="TRANSFERT">Transfert</option><option value="RETOUR_ATELIER">Retour atelier</option>
+        <option value="CHANGEMENT_ETAT">Changement état</option><option value="MISSION">Mission</option>
+      </select></div>
+      <div class="fg"><label>Nouvel état</label><select id="mv-etat"><option value="BON">BON</option><option value="PANNE">PANNE</option><option value="STAND_BY">STAND BY</option></select></div>
+      <div class="fg full"><label>Note</label><textarea id="mv-note" placeholder="Détails…"></textarea></div>
+    </div>
+    <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal('modal-mvt')">Annuler</button><button class="btn btn-primary" onclick="saveMvt()">Enregistrer</button></div>
+  </div>
+</div>
+
+<!-- Approvisionnement -->
+<div class="modal-overlay" id="modal-appro">
+  <div class="modal">
+    <div class="modal-title">APPROVISIONNEMENT <span class="modal-close" onclick="closeModal('modal-appro')">✕</span></div>
+    <div class="form-grid">
+      <div class="fg"><label>Date</label><input type="date" id="ap-date"></div>
+      <div class="fg"><label>Cuve</label><select id="ap-cuve"></select></div>
+      <div class="fg"><label>Quantité (L)</label><input type="number" id="ap-qte" min="1"></div>
+      <div class="fg"><label>Cpt. Camion</label><input id="ap-cpt"></div>
+      <div class="fg"><label>Fournisseur</label><input id="ap-fournisseur"></div>
+      <div class="fg"><label>N° BL</label><input id="ap-bl"></div>
+      <div class="fg full"><label>Réceptionné par</label><input id="ap-benef"></div>
+    </div>
+    <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal('modal-appro')">Annuler</button><button class="btn btn-primary" onclick="saveAppro()">Enregistrer</button></div>
+  </div>
+</div>
+
+<div id="toast">✓ <span id="toast-msg">OK</span></div>
+<button id="menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+
+<!-- ══════════════════════════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════════════════════════ -->
+<script>
+// ══ CONFIG — À MODIFIER ══
+const SUPABASE_URL      = 'https://lgfczrnznkmcdjswiolm.supabase.co';
+const SUPABASE_ANON_KEY = 'VOTRE_SUPABASE_ANON_KEY';
+
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  realtime: { params: { eventsPerSecond: 10 } }
+});
+
+// ══ STATE ══
+let S = {
+  user: null, profil: null, site_id: null,
+  equips: [], cuves: [], alertes: [],
+  cats: {},   // code -> id et id -> code
+  distributions: [], ratios: [],
+};
+const CI = {ENGIN_LOURD:'🏗️',CAMION_TRANSPORT:'🚛',VEHICULE_LEGER:'🚗',MOTO:'🏍️',GROUPE_ELECTROGENE:'⚡',CUVE_GASOIL:'⛽',INSTALLATION:'🏭'};
+const COLS = ['#f5a623','#3b82f6','#22c55e','#a855f7','#ef4444','#06b6d4','#f59e0b','#84cc16','#ec4899','#8b5cf6'];
+
+// ══ INIT ══
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) await onLogin(session.user);
+  sb.auth.onAuthStateChange(async (e, ses) => {
+    if (e === 'SIGNED_IN' && ses) await onLogin(ses.user);
+    if (e === 'SIGNED_OUT') showAuth();
+  });
+})();
+
+// ══ AUTH ══
+function authTab(t, el) {
+  document.querySelectorAll('.auth-tab').forEach(x => x.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('auth-login').style.display = t === 'login' ? 'block' : 'none';
+  document.getElementById('auth-register').style.display = t === 'register' ? 'block' : 'none';
+  hideAuthMsg();
+}
+async function doLogin() {
+  const email = g('login-email'), pwd = g('login-pwd');
+  if (!email || !pwd) { authErr('Email et mot de passe requis'); return; }
+  showLoad();
+  const { error } = await sb.auth.signInWithPassword({ email, password: pwd });
+  hideLoad();
+  if (error) authErr(error.message);
+}
+async function doRegister() {
+  const nom = g('reg-nom'), email = g('reg-email'), pwd = g('reg-pwd');
+  if (!nom || !email || !pwd) { authErr('Tous les champs requis'); return; }
+  if (pwd.length < 8) { authErr('Mot de passe : 8 caractères minimum'); return; }
+  showLoad();
+  const { error } = await sb.auth.signUp({ email, password: pwd, options: { data: { nom } } });
+  hideLoad();
+  if (error) authErr(error.message);
+  else { authOk('Compte créé ! Vérifiez votre email.'); authTab('login', document.querySelector('.auth-tab')); }
+}
+async function doLogout() { await sb.auth.signOut(); showAuth(); }
+
+async function onLogin(user) {
+  S.user = user; showLoad();
+  const { data: profil } = await sb.from('profils').select('*').eq('id', user.id).single();
+  S.profil = profil;
+  S.site_id = profil?.site_id;
+  if (!S.site_id) {
+    const { data: sites } = await sb.from('sites').select('id').limit(1);
+    S.site_id = sites?.[0]?.id;
+  }
+  const { data: cats } = await sb.from('categories').select('*');
+  cats?.forEach(c => { S.cats[c.id] = c.code; S.cats[c.code] = c; S.cats[c.code+'_id'] = c.id; });
+  await loadAll();
+  hideLoad();
+  showApp(profil);
+  setupRealtime();
+}
+
+// ══ DATA LOADING ══
+async function loadAll() {
+  setSyncSt('load');
+  await Promise.all([loadEquips(), loadCuves(), loadAlertes()]);
+  setSyncSt('ok');
+}
+async function loadEquips() {
+  const { data } = await sb.from('equipements')
+    .select('*, categories(code,nom,icone,type_mesure)')
+    .eq('site_id', S.site_id).eq('actif', true)
+    .order('numero', { nullsFirst: false });
+  S.equips = data || [];
+  S.pannes = S.equips.filter(e => e.etat === 'PANNE');
+  renderAll();
+}
+async function loadCuves() {
+  const { data } = await sb.from('cuves').select('*').eq('site_id', S.site_id).eq('actif', true);
+  S.cuves = data || [];
+  populateCuveSelects();
+  renderGasoilKPIs();
+}
+async function loadAlertes() {
+  const { data } = await sb.from('alertes').select('*')
+    .eq('site_id', S.site_id).eq('resolue', false)
+    .order('created_at', { ascending: false }).limit(50);
+  S.alertes = data || [];
+}
+async function loadDistributions() {
+  const { data } = await sb.from('distributions')
+    .select('*, equipements(code,type_engin,marque,ratio_reference_lh,ratio_reference_l100), cuves(code), profils(nom)')
+    .eq('site_id', S.site_id).order('date_distribution', { ascending: false }).limit(300);
+  return data || [];
+}
+async function loadRatios() {
+  const { data } = await sb.from('vue_ratios_equip').select('*').eq('site_id', S.site_id);
+  return data || [];
+}
+async function loadAnomalies() {
+  const { data } = await sb.from('distributions')
+    .select('*, equipements(code,type_engin,marque), cuves(code)')
+    .eq('site_id', S.site_id).eq('anomalie', true)
+    .order('date_distribution', { ascending: false }).limit(100);
+  return data || [];
+}
+async function loadMaintenances() {
+  const { data } = await sb.from('maintenances')
+    .select('*, equipements(code,type_engin,marque,affectation), profils(nom)')
+    .eq('site_id', S.site_id).order('date_debut', { ascending: false }).limit(100);
+  return data || [];
+}
+async function loadMouvements() {
+  const { data } = await sb.from('mouvements')
+    .select('*, equipements(code,type_engin,marque), profils(nom)')
+    .eq('site_id', S.site_id).order('date_mouvement', { ascending: false }).limit(100);
+  return data || [];
+}
+async function loadAppros() {
+  const { data } = await sb.from('approvisionnements')
+    .select('*, cuves(code), profils(nom)')
+    .eq('site_id', S.site_id).order('date_reception', { ascending: false }).limit(100);
+  return data || [];
+}
+
+// ══ REALTIME ══
+function setupRealtime() {
+  sb.channel('rt-lakota')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'equipements', filter: `site_id=eq.${S.site_id}` }, () => loadEquips())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'alertes',     filter: `site_id=eq.${S.site_id}` }, () => { loadAlertes().then(renderAlertes); })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'cuves',        filter: `site_id=eq.${S.site_id}` }, () => loadCuves())
+    .subscribe(st => {
+      const el = document.getElementById('rt-status');
+      el.textContent = st === 'SUBSCRIBED' ? 'Temps réel actif' : 'Reconnexion…';
+      el.className = 'rt-dot' + (st === 'SUBSCRIBED' ? '' : ' off');
+    });
+}
+
+// ══ SAVE ACTIONS ══
+async function saveMateriel() {
+  const code = g('m-code'), type_engin = g('m-type');
+  if (!code || !type_engin) { toast('Code et Type requis', 'err'); return; }
+  const cat_obj = S.cats[g('m-cat')];
+  showLoad();
+  const { error } = await sb.from('equipements').insert({
+    site_id: S.site_id,
+    categorie_id: cat_obj?.id || S.cats[g('m-cat')+'_id'],
+    code, type_engin, marque: g('m-marque'),
+    date_mobilisation: g('m-date') || null,
+    etat: g('m-etat'), affectation: g('m-affect'), observation: g('m-obs'),
+    ratio_reference_lh:   parseFloat(g('m-ratio-lh'))   || null,
+    ratio_reference_l100: parseFloat(g('m-ratio-l100')) || null,
+    compteur_actuel: parseFloat(g('m-cpt')) || 0,
+    seuil_alerte_pct: parseInt(g('m-seuil')) || 20,
+    created_by: S.user.id
+  });
+  hideLoad();
+  if (error) { toast('Erreur : ' + error.message, 'err'); return; }
+  closeModal('modal-materiel'); toast('Équipement ' + code + ' ajouté ✓');
+}
+
+async function saveDist() {
+  const equip_id = g('d-code'), cuve_id = g('d-cuve'), qte = parseInt(g('d-qte'));
+  if (!equip_id || !cuve_id || !qte) { toast('Engin, cuve et quantité requis', 'err'); return; }
+  const cpt_debut = parseFloat(g('d-cpt-debut')) || null;
+  const cpt_fin   = parseFloat(g('d-cpt-fin'))   || null;
+  showLoad();
+  const { error } = await sb.from('distributions').insert({
+    site_id: S.site_id, equipement_id: equip_id, cuve_id,
+    date_distribution: g('d-date') || new Date().toISOString().split('T')[0],
+    quantite: qte, compteur_debut: cpt_debut, compteur_fin: cpt_fin,
+    beneficiaire: g('d-benef'), activite: g('d-motif'),
+    created_by: S.user.id
+  });
+  hideLoad();
+  if (error) { toast('Erreur : ' + error.message, 'err'); return; }
+  toast(qte + ' L distribués ✓ — Ratio calculé automatiquement');
+  await loadCuves();
+  // Reset form
+  ['d-cpt-debut','d-cpt-fin','d-qte','d-benef','d-motif'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('calc-preview').classList.remove('show');
+}
+
+async function saveMaint() {
+  const equip_id = g('mn-code'); if (!equip_id) { toast('Sélectionner un engin', 'err'); return; }
+  const eq = S.equips.find(e => e.id === equip_id);
+  showLoad();
+  await Promise.all([
+    sb.from('maintenances').insert({
+      site_id: S.site_id, equipement_id: equip_id,
+      type_intervention: g('mn-type'), priorite: g('mn-prio'), description: g('mn-desc'),
+      date_debut: g('mn-date') || new Date().toISOString().split('T')[0],
+      statut: 'EN_COURS', created_by: S.user.id
+    }),
+    sb.from('equipements').update({ etat: 'PANNE' }).eq('id', equip_id)
+  ]);
+  hideLoad();
+  closeModal('modal-maint'); toast('Panne déclarée : ' + eq?.code);
+}
+
+async function saveMvt() {
+  const equip_id = g('mv-code'); if (!equip_id) { toast('Sélectionner un engin', 'err'); return; }
+  const eq = S.equips.find(e => e.id === equip_id), new_etat = g('mv-etat');
+  showLoad();
+  await Promise.all([
+    sb.from('mouvements').insert({
+      site_id: S.site_id, equipement_id: equip_id,
+      type_mouvement: g('mv-type'), etat_avant: eq?.etat, etat_apres: new_etat,
+      note: g('mv-note'), date_mouvement: g('mv-date') || new Date().toISOString().split('T')[0],
+      created_by: S.user.id
+    }),
+    sb.from('equipements').update({ etat: new_etat }).eq('id', equip_id)
+  ]);
+  hideLoad();
+  closeModal('modal-mvt'); toast('Mouvement enregistré ✓');
+}
+
+async function saveAppro() {
+  const cuve_id = g('ap-cuve'), qte = parseInt(g('ap-qte'));
+  if (!cuve_id || !qte) { toast('Cuve et quantité requis', 'err'); return; }
+  showLoad();
+  const { error } = await sb.from('approvisionnements').insert({
+    site_id: S.site_id, cuve_id,
+    date_reception: g('ap-date') || new Date().toISOString().split('T')[0],
+    quantite: qte, compteur_camion: g('ap-cpt'),
+    fournisseur: g('ap-fournisseur'), bon_livraison: g('ap-bl'),
+    receptionne_par: g('ap-benef'), created_by: S.user.id
+  });
+  hideLoad();
+  if (error) { toast('Erreur : ' + error.message, 'err'); return; }
+  closeModal('modal-appro'); toast('Approvisionnement enregistré ✓');
+  await loadCuves();
+}
+
+async function resolvePanne(mId, eId) {
+  showLoad();
+  await Promise.all([
+    sb.from('maintenances').update({ statut:'RESOLU', date_fin:new Date().toISOString().split('T')[0], updated_by:S.user.id }).eq('id', mId),
+    sb.from('equipements').update({ etat:'BON' }).eq('id', eId)
+  ]);
+  hideLoad(); toast('Panne résolue ✓');
+}
+
+async function markRead() {
+  await sb.from('alertes').update({ lue:true }).eq('site_id', S.site_id).eq('lue', false);
+  await loadAlertes(); renderAlertes(); toast('Alertes marquées lues ✓');
+}
+
+// ══ DISTRIBUTION — MODULE RATIO EN TEMPS RÉEL ══
+function onEquipSelect() {
+  const id = g('d-code');
+  const eq = S.equips.find(e => e.id === id);
+  const ratioSec  = document.getElementById('ratio-section');
+  const cptDebutFg = document.getElementById('cpt-debut-fg');
+  const cptFinFg   = document.getElementById('cpt-fin-fg');
+  const hint = document.getElementById('cpt-hint');
+  const prev = document.getElementById('calc-preview');
+
+  if (!eq || !eq.categories) { ratioSec.style.display='none'; cptDebutFg.style.display='none'; cptFinFg.style.display='none'; prev.classList.remove('show'); return; }
+
+  const tm = eq.categories.type_mesure;
+  if (tm === 'AUCUN') { ratioSec.style.display='none'; cptDebutFg.style.display='none'; cptFinFg.style.display='none'; return; }
+
+  ratioSec.style.display = 'block';
+  cptDebutFg.style.display = 'block';
+  cptFinFg.style.display   = 'block';
+
+  if (tm === 'HEURES') {
+    document.getElementById('ratio-type-label').textContent = 'Suivi Horaire (L/h)';
+    document.getElementById('cpt-debut-label').textContent = 'Heures début';
+    document.getElementById('cpt-fin-label').textContent   = 'Heures fin';
+    hint.textContent = 'Compteur actuel : ' + (eq.compteur_actuel || '—') + ' h';
+    // Pré-remplir début avec valeur actuelle
+    document.getElementById('d-cpt-debut').value = eq.compteur_actuel || '';
+  } else {
+    document.getElementById('ratio-type-label').textContent = 'Suivi Kilométrique (L/100km)';
+    document.getElementById('cpt-debut-label').textContent = 'Km début';
+    document.getElementById('cpt-fin-label').textContent   = 'Km fin';
+    hint.textContent = 'Kilométrage actuel : ' + (eq.compteur_actuel || '—') + ' km';
+    document.getElementById('d-cpt-debut').value = eq.compteur_actuel || '';
+  }
+  calcPreview();
+}
+
+function calcPreview() {
+  const id = g('d-code');
+  const eq = S.equips.find(e => e.id === id);
+  if (!eq || !eq.categories) return;
+  const tm  = eq.categories.type_mesure; if (tm === 'AUCUN') return;
+  const qte = parseFloat(g('d-qte'));
+  const deb = parseFloat(g('d-cpt-debut'));
+  const fin = parseFloat(g('d-cpt-fin'));
+  const prev = document.getElementById('calc-preview');
+  if (!qte || !deb || !fin || fin <= deb) { prev.classList.remove('show'); return; }
+
+  const delta = fin - deb;
+  let ratio, unite, ref;
+  if (tm === 'HEURES') {
+    ratio = (qte / delta).toFixed(2);
+    ref   = eq.ratio_reference_lh;
+    unite = 'L/h';
+  } else {
+    ratio = (qte / delta * 100).toFixed(2);
+    ref   = eq.ratio_reference_l100;
+    unite = 'L/100km';
+  }
+  const ecart = ref ? ((ratio - ref) / ref * 100).toFixed(1) : null;
+  const seuil = eq.seuil_alerte_pct || 20;
+  const anomalie = ecart && Math.abs(ecart) > seuil;
+  const color = !ecart ? 'var(--text)' : anomalie ? (ecart > 0 ? 'var(--red)' : 'var(--blue)') : 'var(--green)';
+
+  prev.classList.add('show');
+  prev.innerHTML = `
+    <div style="display:flex;gap:16px;flex-wrap:wrap">
+      <div>⬆ <strong>Δ ${tm === 'HEURES' ? 'Heures' : 'Km'} :</strong> ${delta.toFixed(1)} ${tm === 'HEURES' ? 'h' : 'km'}</div>
+      <div>⛽ <strong>Ratio calculé :</strong> <strong style="color:${color}">${ratio} ${unite}</strong></div>
+      ${ref ? `<div>📌 <strong>Référence :</strong> ${ref} ${unite}</div>` : ''}
+      ${ecart ? `<div>📊 <strong>Écart :</strong> <strong style="color:${color}">${ecart > 0 ? '+' : ''}${ecart}%</strong>${anomalie ? ' ⚠ ANOMALIE' : ' ✓'}</div>` : ''}
+    </div>
+    ${anomalie ? `<div style="margin-top:6px;padding:6px 8px;background:rgba(239,68,68,.08);border-radius:4px;font-size:11px;color:var(--red)">⚠ Écart > ${seuil}% — Une alerte sera générée automatiquement.</div>` : ''}
+  `;
+}
+
+// ══ NAVIGATION ══
+function go(id, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + id)?.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  if (el) el.classList.add('active');
+  const T = {dashboard:'TABLEAU DE BORD',parc:'INVENTAIRE PARC',pannes:'PANNES & MAINTENANCE',
+    affectations:'AFFECTATIONS',mouvements:'MOUVEMENTS',gasoil:'DISTRIBUTION GASOIL',
+    ratios:'RATIOS & KPIs CARBURANT',appros:'APPROVISIONNEMENTS',rapports:'RAPPORTS',alertes:'ALERTES'};
+  document.getElementById('page-title').textContent = T[id] || id.toUpperCase();
+  document.getElementById('search-input').value = '';
+  document.getElementById('sidebar').classList.remove('open');
+  if (id === 'pannes')       loadAndRenderPannes();
+  if (id === 'mouvements')   loadMouvements().then(renderMvts);
+  if (id === 'gasoil')       { renderGasoilKPIs(); renderCuvesStocks(); }
+  if (id === 'ratios')       loadRatios().then(renderRatios);
+  if (id === 'appros')       loadAppros().then(renderAppros);
+  if (id === 'alertes')      { loadAlertes().then(renderAlertes); }
+  if (id === 'affectations') renderAffectations();
+}
+
+// ══ RENDER DASHBOARD ══
+function renderAll() {
+  const e = S.equips;
+  const total = e.length, pannes = e.filter(x => x.etat==='PANNE').length, ok = total - pannes;
+  const anomalies = e.filter(x => x._has_anomaly).length; // On le met à jour via distributions
+
+  setText('kpi-total',  total);   setText('kpi-ok',    ok);
+  setText('kpi-pct',    '▲ ' + Math.round(ok/total*100) + '%');
+  setText('kpi-panne',  pannes);  setText('kpi-ppct', '▼ ' + Math.round(pannes/total*100) + '%');
+  setText('kpi-anomalies', '—');
+  setText('kpi-el', e.filter(x => x.categories?.code==='ENGIN_LOURD').length);
+  setText('kpi-ct', e.filter(x => x.categories?.code==='CAMION_TRANSPORT').length);
+  setText('kpi-vl', e.filter(x => x.categories?.code==='VEHICULE_LEGER').length);
+  setText('kpi-gm', e.filter(x => ['GROUPE_ELECTROGENE','MOTO'].includes(x.categories?.code)).length);
+  setText('nav-total',  total);
+  setText('badge-pannes', pannes);
+  setText('badge-alertes', S.alertes.length);
+  setText('d-dispo',    Math.round(ok/total*100) + '%');
+  setText('d-pannes',   pannes);
+  setText('kpi-dateref', 'Point du ' + new Date().toLocaleDateString('fr-FR'));
+
+  // Panne dash
+  const pd = document.getElementById('panne-dash');
+  if (pd) pd.innerHTML = S.pannes.map(p => `
+    <tr><td><strong class="mono" style="color:var(--accent)">${p.code}</strong></td>
+    <td style="font-size:11.5px">${p.type_engin}</td>
+    <td style="color:var(--text2);font-size:11.5px">${p.affectation||'—'}</td>
+    <td style="color:var(--text3);font-size:11px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.observation||'—'}</td>
+    <td><span class="badge b-panne">PANNE</span></td></tr>`).join('')
+    || '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:18px">✅ Aucune panne</td></tr>';
+
+  // Donut
+  const catD = [
+    {l:'Engins Lourds',c:'ENGIN_LOURD',col:'#f5a623'},
+    {l:'Camions',c:'CAMION_TRANSPORT',col:'#3b82f6'},
+    {l:'Véhicules',c:'VEHICULE_LEGER',col:'#22c55e'},
+    {l:'Motos',c:'MOTO',col:'#a855f7'},
+    {l:'GE & Cuves',cs:['GROUPE_ELECTROGENE','CUVE_GASOIL'],col:'#06b6d4'},
+    {l:'Installations',c:'INSTALLATION',col:'#84cc16'},
+  ];
+  const circ = 2*Math.PI*38; let off = 0;
+  catD.forEach((c, i) => {
+    const cnt = c.cs ? e.filter(x => c.cs.includes(x.categories?.code)).length : e.filter(x => x.categories?.code === c.c).length;
+    c.count = cnt;
+    const el = document.getElementById('d'+(i+1)); if (!el) return;
+    const dash = circ * cnt / (total||1);
+    el.setAttribute('stroke-dasharray', `${dash} ${circ-dash}`);
+    el.setAttribute('stroke-dashoffset', -off);
+    el.setAttribute('stroke', c.col);
+    off += dash;
+  });
+  setText('donut-n', total);
+  const dl = document.getElementById('donut-leg');
+  if (dl) dl.innerHTML = catD.map(c => `
+    <div class="leg-row"><div class="leg-dot" style="background:${c.col}"></div>
+    <span style="color:var(--text2);font-size:11px">${c.l}</span>
+    <span class="leg-count">${c.count}</span></div>`).join('');
+
+  // Type bars
+  const tc = {}; e.forEach(x => { const t = x.type_engin.trim(); tc[t]=(tc[t]||0)+1; });
+  const tt = Object.entries(tc).sort((a,b)=>b[1]-a[1]).slice(0,10), mx=tt[0]?.[1]||1;
+  const tb = document.getElementById('type-bars');
+  if (tb) tb.innerHTML = tt.map(([k,v],i) => `
+    <div class="bar-row"><div class="bar-lbl" title="${k}">${k.length>10?k.slice(0,9)+'…':k}</div>
+    <div class="bar-track"><div class="bar-fill" style="width:${v/mx*100}%;background:${COLS[i%10]}">
+    <span class="bar-num">${v}</span></div></div></div>`).join('');
+
+  // Activity bars
+  const ac = {}; e.forEach(x => { let a=(x.affectation||'NON AFFECTÉ').toUpperCase().trim()||'NON AFFECTÉ'; ac[a]=(ac[a]||0)+1; });
+  const at = Object.entries(ac).sort((a,b)=>b[1]-a[1]).slice(0,8), ma=at[0]?.[1]||1;
+  const ab = document.getElementById('act-bars');
+  if (ab) ab.innerHTML = at.map(([k,v],i) => `
+    <div class="bar-row"><div class="bar-lbl" title="${k}">${k.length>10?k.slice(0,9)+'…':k}</div>
+    <div class="bar-track"><div class="bar-fill" style="width:${v/ma*100}%;background:${COLS[i%10]}">
+    <span class="bar-num">${v}</span></div></div></div>`).join('');
+
+  // Recap
+  const RT = document.getElementById('recap-tbody');
+  if (RT) RT.innerHTML = ['ENGIN_LOURD','CAMION_TRANSPORT','VEHICULE_LEGER','MOTO','GROUPE_ELECTROGENE','CUVE_GASOIL','INSTALLATION'].map(cat => {
+    const all=e.filter(x=>x.categories?.code===cat);
+    const bon=all.filter(x=>x.etat==='BON').length, pan=all.filter(x=>x.etat==='PANNE').length;
+    const pct=all.length?Math.round(bon/all.length*100):0;
+    return `<tr><td>${CI[cat]||'📦'} ${cat.replace('_',' ')}</td><td><strong>${all.length}</strong></td>
+      <td style="color:var(--green)">${bon}</td><td style="color:var(--red)">${pan}</td>
+      <td><strong style="color:${pct>=90?'var(--green)':pct>=70?'var(--amber)':'var(--red)'}">${pct}%</strong></td></tr>`;
+  }).join('');
+
+  renderParc();
+  renderPanneKPIs();
+}
+
+// ══ PARC ══
+let _cat='',_etat='',_search='';
+function setF(f,el){_cat=f;_etat='';document.querySelectorAll('#parc-chips .chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');renderParc();}
+function setE(e2,el){_etat=e2;_cat='';document.querySelectorAll('#parc-chips .chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');renderParc();}
+function setS(v){_search=v;renderParc();}
+function globalSearch(v){_search=v;if(v&&!document.getElementById('page-parc').classList.contains('active'))go('parc',null);renderParc();}
+
+function renderParc() {
+  let d = [...S.equips];
+  if (_cat) d = d.filter(e => e.categories?.code === _cat);
+  if (_etat) d = d.filter(e => e.etat === _etat);
+  if (_search) { const q=_search.toLowerCase(); d=d.filter(e=>[e.code,e.type_engin,e.marque,e.affectation,e.observation].join(' ').toLowerCase().includes(q)); }
+  const q = _search.toLowerCase();
+  function hl(s){if(!q||!s)return s||'—';const i=s.toLowerCase().indexOf(q);if(i<0)return s;return s.slice(0,i)+'<span class="hl">'+s.slice(i,i+q.length)+'</span>'+s.slice(i+q.length);}
+
+  document.getElementById('parc-tbody').innerHTML = d.map(e => {
+    const tm = e.categories?.type_mesure;
+    const refLabel = tm==='HEURES' ? (e.ratio_reference_lh ? e.ratio_reference_lh+' L/h' : '—') :
+                     tm==='KM'     ? (e.ratio_reference_l100 ? e.ratio_reference_l100+' L/100km' : '—') : '—';
+    return `<tr>
+      <td class="mono" style="color:var(--text3)">${e.numero||'—'}</td>
+      <td><strong class="mono" style="color:var(--accent)">${hl(e.code)}</strong></td>
+      <td>${hl(e.type_engin)}</td>
+      <td style="color:var(--text2);font-size:11.5px">${e.marque||'—'}</td>
+      <td><span class="tag">${CI[e.categories?.code]||'📦'} ${(e.categories?.code||'').split('_')[0]}</span></td>
+      <td class="mono" style="color:var(--text3);font-size:10.5px">${e.date_mobilisation?fr(e.date_mobilisation):'—'}</td>
+      <td style="color:var(--text2);font-size:11.5px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${hl(e.affectation)||'—'}</td>
+      <td><span class="badge ${e.etat==='BON'?'b-ok':e.etat==='PANNE'?'b-panne':'b-stand'}">${e.etat}</span></td>
+      <td class="mono" style="font-size:10.5px;color:var(--text2)">${refLabel}</td>
+      <td class="mono" style="font-size:10.5px;color:var(--text3)">${e.compteur_actuel ? e.compteur_actuel.toLocaleString('fr-FR') + (tm==='HEURES'?' h':' km') : '—'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn-icon" onclick="quickToggle('${e.id}','${e.etat}')">⚡</button>
+        <button class="btn-icon" style="margin-left:3px" onclick="quickPanneModal('${e.id}','${e.code}')">🔧</button>
+      </td></tr>`;
+  }).join('');
+
+  const sb2 = document.getElementById('parc-summary');
+  if (_search||_cat||_etat) {
+    sb2.style.display='flex';
+    sb2.innerHTML=`<strong>${d.length}</strong> résultat(s)${_cat?' · '+_cat.replace('_',' '):''}${_etat?' · '+_etat:''}${_search?' · "'+_search+'"':''}
+      <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="resetParc()">✕ Réinitialiser</button>`;
+  } else sb2.style.display='none';
+  document.getElementById('parc-footer').textContent=`${d.length} équipements · ${d.filter(e=>e.etat==='BON').length} BON · ${d.filter(e=>e.etat==='PANNE').length} PANNE`;
+}
+
+function resetParc(){_cat='';_etat='';_search='';document.getElementById('parc-search').value='';
+  document.querySelectorAll('#parc-chips .chip').forEach((c,i)=>c.classList.toggle('active',i===0));renderParc();}
+async function quickToggle(id,cur){await sb.from('equipements').update({etat:cur==='BON'?'PANNE':'BON'}).eq('id',id);toast('État mis à jour');}
+function quickPanneModal(id,code){document.getElementById('mn-code').innerHTML=`<option value="${id}">${code}</option>`;openModal('modal-maint');}
+
+// ══ PANNES ══
+function renderPanneKPIs() {
+  const p=S.pannes;
+  setText('pk-total',p.length);
+  setText('pk-el',p.filter(x=>x.categories?.code==='ENGIN_LOURD').length);
+  setText('pk-ct',p.filter(x=>['CAMION_TRANSPORT','VEHICULE_LEGER'].includes(x.categories?.code)).length);
+  setText('pk-other',p.filter(x=>!['ENGIN_LOURD','CAMION_TRANSPORT','VEHICULE_LEGER'].includes(x.categories?.code)).length);
+}
+async function loadAndRenderPannes() {
+  const maints = await loadMaintenances();
+  const active = maints.filter(m => m.statut==='EN_COURS');
+  const pl = document.getElementById('panne-list');
+  if (pl) pl.innerHTML = active.map(m => `
+    <div class="alert-item danger">
+      <div class="alert-icon">${m.type_intervention==='ALERTE_RATIO'?'📐':'🔴'}</div>
+      <div class="alert-body">
+        <div class="alert-title">${m.equipements?.code} — ${m.equipements?.type_engin} ${m.equipements?.marque||''}</div>
+        <div class="alert-desc">${m.description||m.type_intervention}${m.ratio_observe?' · Ratio obs: '+m.ratio_observe:''}${m.ratio_reference?' (réf: '+m.ratio_reference+')':''}</div>
+        <div class="alert-time">${fr(m.date_debut)} · ${m.priorite}</div>
+      </div>
+      <button class="btn btn-ok btn-sm" style="flex-shrink:0" onclick="resolvePanne('${m.id}','${m.equipement_id}')">✓</button>
+    </div>`).join('') || '<div style="text-align:center;padding:20px;color:var(--text3)">✅ Aucune panne active</div>';
+
+  const mp = document.getElementById('maint-planned');
+  if (mp) mp.innerHTML = maints.filter(m=>m.statut==='PLANIFIE').slice(0,5).map(m=>`
+    <div class="alert-item warn"><div class="alert-icon">🟡</div><div class="alert-body">
+      <div class="alert-title">${m.equipements?.code} — ${m.equipements?.type_engin}</div>
+      <div class="alert-desc">${m.description}</div>
+      <div class="alert-time">${fr(m.date_debut)}</div></div></div>`).join('') ||
+    '<div style="font-size:11px;color:var(--text3);text-align:center;padding:12px">Aucune maintenance planifiée</div>';
+
+  const mt = document.getElementById('maint-tbody');
+  if (mt) mt.innerHTML = maints.map(m=>`
+    <tr><td class="mono" style="color:var(--text3);font-size:10.5px">${fr(m.date_debut)}</td>
+    <td><strong class="mono" style="color:var(--accent)">${m.equipements?.code||'—'}</strong></td>
+    <td style="font-size:11.5px;color:var(--text2)">${m.equipements?.type_engin||'—'}</td>
+    <td style="font-size:11.5px">${m.description||m.type_intervention}</td>
+    <td><span class="badge ${m.priorite==='HAUTE'?'b-panne':m.priorite==='NORMALE'?'b-maint':'b-stand'}">${m.priorite}</span></td>
+    <td><span class="badge ${m.statut==='EN_COURS'?'b-panne':m.statut==='PLANIFIE'?'b-maint':'b-ok'}">${m.statut}</span></td>
+    <td class="mono" style="font-size:10.5px;color:var(--amber)">${m.ratio_observe||'—'}</td>
+    <td>${m.statut==='EN_COURS'?`<button class="btn btn-ok btn-sm" onclick="resolvePanne('${m.id}','${m.equipement_id}')">✓</button>`:''}</td></tr>`).join('');
+}
+
+// ══ AFFECTATIONS ══
+function renderAffectations() {
+  const e=S.equips;
+  const ac={}; e.forEach(x=>{let a=(x.affectation||'NON AFFECTÉ').toUpperCase().trim()||'NON AFFECTÉ';ac[a]=(ac[a]||0)+1;});
+  const sorted=Object.entries(ac).sort((a,b)=>b[1]-a[1]), max=sorted[0]?.[1]||1;
+  const ab=document.getElementById('aff-bars');
+  if(ab)ab.innerHTML=sorted.slice(0,12).map(([k,v],i)=>`
+    <div class="bar-row"><div class="bar-lbl" title="${k}">${k.length>10?k.slice(0,9)+'…':k}</div>
+    <div class="bar-track"><div class="bar-fill" style="width:${v/max*100}%;background:${COLS[i%10]}"><span class="bar-num">${v}</span></div></div></div>`).join('');
+  const ar=document.getElementById('aff-recap');
+  if(ar)ar.innerHTML=sorted.map(([k,v])=>`<tr><td style="font-size:11.5px">${k}</td><td><strong>${v}</strong></td><td style="color:var(--text3)">${(v/e.length*100).toFixed(1)}%</td></tr>`).join('');
+  const at=document.getElementById('aff-tbody');
+  if(at)at.innerHTML=e.map(x=>`<tr>
+    <td class="mono" style="color:var(--text3)">${x.numero||'—'}</td>
+    <td><strong class="mono" style="color:var(--accent)">${x.code}</strong></td>
+    <td>${x.type_engin}</td><td style="color:var(--text2)">${x.marque||'—'}</td>
+    <td><strong>${x.affectation||'—'}</strong></td>
+    <td><span class="badge ${x.etat==='BON'?'b-ok':x.etat==='PANNE'?'b-panne':'b-stand'}">${x.etat}</span></td>
+    <td class="mono" style="color:var(--text3);font-size:10.5px">${x.date_mobilisation?fr(x.date_mobilisation):'—'}</td></tr>`).join('');
+}
+
+// ══ MOUVEMENTS ══
+function renderMvts(mvts) {
+  const t=document.getElementById('mvt-tbody');if(!t)return;
+  t.innerHTML=mvts.map(m=>`<tr>
+    <td class="mono" style="color:var(--text3);font-size:10.5px">${fr(m.date_mouvement)}</td>
+    <td><strong class="mono" style="color:var(--accent)">${m.equipements?.code||'—'}</strong></td>
+    <td style="color:var(--text2);font-size:11.5px">${m.equipements?.type_engin||'—'}</td>
+    <td><span class="badge b-info">${m.type_mouvement}</span></td>
+    <td><span class="badge ${m.etat_avant==='BON'?'b-ok':m.etat_avant==='PANNE'?'b-panne':'b-stand'}">${m.etat_avant||'—'}</span></td>
+    <td><span class="badge ${m.etat_apres==='BON'?'b-ok':m.etat_apres==='PANNE'?'b-panne':'b-stand'}">${m.etat_apres||'—'}</span></td>
+    <td style="color:var(--text3);font-size:11.5px">${m.note||'—'}</td>
+    <td style="color:var(--text3);font-size:10.5px">${m.profils?.nom||'—'}</td></tr>`).join('');
+}
+
+// ══ GASOIL ══
+function gTab(id,el) {
+  ['saisie','hist','engin','anomalies'].forEach(t=>{const e=document.getElementById('tab-'+t);if(e)e.style.display='none';});
+  const tgt=document.getElementById('tab-'+id);if(tgt)tgt.style.display='block';
+  document.querySelectorAll('#page-gasoil .tab').forEach(t=>t.classList.remove('active'));
+  if(el)el.classList.add('active');
+  if(id==='hist')     loadDistributions().then(renderHist);
+  if(id==='engin')    loadDistributions().then(renderConsoEngin);
+  if(id==='anomalies') loadAnomalies().then(renderAnomalies);
+}
+
+function renderGasoilKPIs() {
+  const kpis=document.getElementById('gasoil-kpis');if(!kpis)return;
+  kpis.innerHTML=S.cuves.map(c=>{
+    const pct=Math.round(c.stock_actuel/c.capacite*100);
+    const col=pct<15?'var(--red)':pct<30?'var(--amber)':'var(--blue)';
+    return `<div class="kpi" style="--kc:${col}">
+      <div class="kpi-label">${c.code} (cap. ${c.capacite.toLocaleString('fr-FR')} L)</div>
+      <div class="kpi-val">${c.stock_actuel.toLocaleString('fr-FR')}</div>
+      <div class="kpi-sub">${c.affectation||'—'}</div>
+      <div class="prog"><div class="prog-fill" style="width:${pct}%;background:${col}"></div></div>
+      <div class="kpi-trend ${pct<15?'ko':pct<30?'warn':'ok'}">${pct<15?'⚠ Critique':pct<30?'⚠ Bas':'✓ OK'} — ${pct}%</div>
+    </div>`;
+  }).join('');
+}
+
+function renderCuvesStocks() {
+  const cs=document.getElementById('cuves-stocks');if(!cs)return;
+  cs.innerHTML=S.cuves.map(c=>{
+    const pct=Math.round(c.stock_actuel/c.capacite*100);
+    const col=pct<15?'var(--red)':pct<30?'var(--amber)':'var(--green)';
+    return `<div class="stat-row">
+      <span style="font-size:11.5px;color:var(--text2)">${c.code} — ${c.affectation||'—'}</span>
+      <strong style="color:${col}">${c.stock_actuel.toLocaleString('fr-FR')} L (${pct}%)</strong>
+    </div>`;
+  }).join('');
+}
+
+function renderHist(dists) {
+  const t=document.getElementById('hist-tbody');if(!t)return;
+  t.innerHTML=dists.map(d=>{
+    const ecart=d.ecart_reference_pct;
+    const ecartCol=!ecart?'var(--text3)':ecart>20?'var(--red)':ecart<-20?'var(--blue)':'var(--green)';
+    const ratio_ref = d.type_mesure==='HEURES'?d.equipements?.ratio_reference_lh:d.equipements?.ratio_reference_l100;
+    const unite = d.type_mesure==='HEURES'?'L/h':'L/100km';
+    return `<tr>
+      <td class="mono" style="color:var(--text3);font-size:10.5px">${fr(d.date_distribution)}</td>
+      <td><strong class="mono" style="color:var(--accent)">${d.equipements?.code||'—'}</strong></td>
+      <td style="font-size:11.5px;color:var(--text2)">${d.equipements?.type_engin||'—'}</td>
+      <td><strong>${d.quantite} L</strong></td>
+      <td class="mono" style="font-size:10.5px">${d.compteur_delta?d.compteur_delta.toFixed(1)+(d.type_mesure==='HEURES'?' h':' km'):'—'}</td>
+      <td>${d.ratio_calcule?`<span class="ratio-badge ${d.anomalie?'ratio-danger':'ratio-ok'}">${d.ratio_calcule} ${unite}</span>`:'<span class="ratio-badge ratio-neutral">—</span>'}</td>
+      <td class="mono" style="font-size:10.5px;color:var(--text3)">${ratio_ref?ratio_ref+' '+unite:'—'}</td>
+      <td style="color:${ecartCol};font-family:'DM Mono';font-size:10.5px">${ecart?(ecart>0?'+':'')+ecart+'%':'—'}</td>
+      <td>${d.anomalie?'<span class="badge b-panne">⚠</span>':'<span class="badge b-ok">✓</span>'}</td>
+      <td style="color:var(--text3);font-size:11px">${d.activite||'—'}</td></tr>`;
+  }).join('');
+}
+
+function renderConsoEngin(dists) {
+  // Agrège par engin
+  const byEquip={};
+  dists.forEach(d=>{
+    const k=d.equipement_id;if(!k)return;
+    if(!byEquip[k])byEquip[k]={code:d.equipements?.code,type:d.equipements?.type_engin,marque:d.equipements?.marque,
+      total_l:0,total_delta:0,nb:0,anomalies:0,dernier:null,type_mesure:d.type_mesure,
+      ref_lh:d.equipements?.ratio_reference_lh,ref_l100:d.equipements?.ratio_reference_l100};
+    byEquip[k].total_l+=d.quantite;
+    if(d.compteur_delta)byEquip[k].total_delta+=d.compteur_delta;
+    byEquip[k].nb++;
+    if(d.anomalie)byEquip[k].anomalies++;
+    if(!byEquip[k].dernier||d.date_distribution>byEquip[k].dernier)byEquip[k].dernier=d.date_distribution;
+  });
+  const rows=Object.values(byEquip).sort((a,b)=>b.total_l-a.total_l);
+  const t=document.getElementById('engin-tbody');if(!t)return;
+  t.innerHTML=rows.map(r=>{
+    let ratio_moy=null,unite='',ref=null;
+    if(r.total_delta>0){
+      if(r.type_mesure==='HEURES'){ratio_moy=(r.total_l/r.total_delta).toFixed(2);unite='L/h';ref=r.ref_lh;}
+      else if(r.type_mesure==='KM'){ratio_moy=(r.total_l/r.total_delta*100).toFixed(2);unite='L/100km';ref=r.ref_l100;}
+    }
+    const ecart=ratio_moy&&ref?((ratio_moy-ref)/ref*100).toFixed(1):null;
+    const statut=!ratio_moy?'neutral':!ecart?'neutral':Math.abs(ecart)>20?(ecart>0?'danger':'info'):'ok';
+    const statusLabels={neutral:'—',ok:'✓ Normal',danger:'⚠ Élevé',info:'▼ Bas'};
+    return `<tr>
+      <td><strong class="mono" style="color:var(--accent)">${r.code}</strong></td>
+      <td style="font-size:11.5px;color:var(--text2)">${r.type}</td>
+      <td><strong>${r.total_l.toLocaleString('fr-FR')} L</strong></td>
+      <td style="color:var(--text3)">${r.nb}</td>
+      <td class="mono" style="font-size:10.5px">${r.total_delta>0?r.total_delta.toFixed(1)+(r.type_mesure==='HEURES'?' h':' km'):'—'}</td>
+      <td>${ratio_moy?`<span class="ratio-badge ratio-${statut}">${ratio_moy} ${unite}</span>`:'<span class="ratio-badge ratio-neutral">—</span>'}</td>
+      <td class="mono" style="font-size:10.5px;color:var(--text3)">${ref?ref+' '+unite:'—'}</td>
+      <td>${ecart?`<span style="color:${Math.abs(ecart)>20?(ecart>0?'var(--red)':'var(--blue)'):'var(--green)'};">${ecart>0?'+':''}${ecart}%</span>`:'—'}</td>
+      <td style="font-size:10.5px;color:var(--text3)">${r.dernier?fr(r.dernier):'—'}</td></tr>`;
+  }).join('');
+}
+
+function renderAnomalies(dists) {
+  const t=document.getElementById('anomaly-tbody');if(!t)return;
+  t.innerHTML=dists.map(d=>{
+    const unite=d.type_mesure==='HEURES'?'L/h':'L/100km';
+    const ref=d.type_mesure==='HEURES'?d.equipements?.ratio_reference_lh:d.equipements?.ratio_reference_l100;
+    return `<tr>
+      <td class="mono" style="color:var(--red);font-size:10.5px">${fr(d.date_distribution)}</td>
+      <td><strong class="mono" style="color:var(--accent)">${d.equipements?.code||'—'}</strong></td>
+      <td style="font-size:11.5px;color:var(--text2)">${d.equipements?.type_engin||'—'}</td>
+      <td><strong>${d.quantite} L</strong></td>
+      <td><span class="ratio-badge ratio-danger">${d.ratio_calcule||'—'} ${unite}</span></td>
+      <td class="mono" style="font-size:10.5px;color:var(--text3)">${ref?ref+' '+unite:'—'}</td>
+      <td><strong style="color:var(--red)">${d.ecart_reference_pct?(d.ecart_reference_pct>0?'+':'')+d.ecart_reference_pct+'%':'—'}</strong></td>
+      <td style="font-size:11.5px">${d.beneficiaire||'—'}</td>
+      <td style="color:var(--text3);font-size:11px">${d.activite||'—'}</td></tr>`;
+  }).join('') || '<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--text3)">✅ Aucune anomalie</td></tr>';
+}
+
+// ══ RATIOS KPIs PAGE ══
+function rTab(id,el){
+  ['top','engins','vehicules','derive'].forEach(t=>{const e=document.getElementById('rtab-'+t);if(e)e.style.display='none';});
+  const tgt=document.getElementById('rtab-'+id);if(tgt)tgt.style.display='block';
+  document.querySelectorAll('#page-ratios .tab').forEach(t=>t.classList.remove('active'));
+  if(el)el.classList.add('active');
+}
+
+async function renderRatios(ratios) {
+  setText('rk-total', ratios.filter(r=>r.total_delta>0).length);
+  setText('rk-anomalies', ratios.filter(r=>r.nb_anomalies>0).length);
+  setText('rk-ok', ratios.filter(r=>r.total_delta>0&&r.nb_anomalies===0).length);
+  setText('badge-anomalies', ratios.filter(r=>r.nb_anomalies>0).length);
+  setText('d-anomalies', ratios.filter(r=>r.nb_anomalies>0).length);
+  setText('kpi-anomalies', ratios.filter(r=>r.nb_anomalies>0).length);
+
+  // Top vol bars
+  const byVol=ratios.slice(0,10), maxV=byVol[0]?.total_litres||1;
+  const tvb=document.getElementById('top-vol-bars');
+  if(tvb)tvb.innerHTML=byVol.map((r,i)=>`
+    <div class="bar-row"><div class="bar-lbl" title="${r.code_equip}">${r.code_equip}</div>
+    <div class="bar-track"><div class="bar-fill" style="width:${r.total_litres/maxV*100}%;background:${COLS[i%10]}">
+    <span class="bar-num">${(r.total_litres/1000).toFixed(1)}k L</span></div></div></div>`).join('');
+
+  // Pire ratio bars (écart le plus élevé)
+  const withEcart=ratios.filter(r=>r.ratio_moyen&&(r.ratio_reference_lh||r.ratio_reference_l100)).map(r=>{
+    const ref=r.type_mesure==='HEURES'?r.ratio_reference_lh:r.ratio_reference_l100;
+    const ecart=ref?((r.ratio_moyen-ref)/ref*100):0;
+    return {...r,ecart};
+  }).sort((a,b)=>b.ecart-a.ecart).slice(0,8);
+  const maxE=withEcart[0]?.ecart||1;
+  const prb=document.getElementById('pire-ratio-bars');
+  if(prb)prb.innerHTML=withEcart.map((r,i)=>`
+    <div class="bar-row"><div class="bar-lbl" title="${r.code_equip}">${r.code_equip}</div>
+    <div class="bar-track"><div class="bar-fill" style="width:${Math.abs(r.ecart/maxE)*100}%;background:${r.ecart>20?'var(--red)':r.ecart>0?'var(--amber)':'var(--green)'}">
+    <span class="bar-num">${r.ecart>0?'+':''}${r.ecart.toFixed(0)}%</span></div></div></div>`).join('');
+
+  // Synthèse tous
+  const rat=document.getElementById('ratio-all-tbody');
+  if(rat)rat.innerHTML=ratios.map(r=>{
+    const tm=r.type_mesure;const ref=tm==='HEURES'?r.ratio_reference_lh:r.ratio_reference_l100;
+    const unite=tm==='HEURES'?'L/h':'L/100km';
+    const ecart=r.ratio_moyen&&ref?((r.ratio_moyen-ref)/ref*100).toFixed(1):null;
+    const cls=!ecart?'neutral':Math.abs(ecart)>20?(parseFloat(ecart)>0?'danger':'info'):'ok';
+    return `<tr>
+      <td><strong class="mono" style="color:var(--accent)">${r.code_equip}</strong></td>
+      <td style="font-size:11.5px;color:var(--text2)">${r.type_engin}</td>
+      <td><span class="tag">${tm==='HEURES'?'⏱ h':'🛣 km'}</span></td>
+      <td><strong>${r.total_litres?.toLocaleString('fr-FR')||0} L</strong></td>
+      <td class="mono" style="font-size:10.5px">${r.total_delta>0?r.total_delta.toFixed(1)+(tm==='HEURES'?' h':' km'):'—'}</td>
+      <td>${r.ratio_moyen?`<span class="ratio-badge ratio-${cls}">${r.ratio_moyen} ${unite}</span>`:'<span class="ratio-badge ratio-neutral">—</span>'}</td>
+      <td class="mono" style="font-size:10.5px;color:var(--text3)">${ref?ref+' '+unite:'—'}</td>
+      <td style="color:${ecart?Math.abs(ecart)>20?(parseFloat(ecart)>0?'var(--red)':'var(--blue)'):'var(--green)':'var(--text3)'};font-family:'DM Mono';font-size:10.5px">${ecart?(parseFloat(ecart)>0?'+':'')+ecart+'%':'—'}</td>
+      <td style="color:var(--text3)">${r.nb_distributions||0}</td>
+      <td>${r.nb_anomalies>0?`<span class="badge b-panne">⚠ ${r.nb_anomalies}</span>`:'<span class="badge b-ok">✓ 0</span>'}</td>
+      <td><span class="ratio-badge ratio-${cls}">${cls==='ok'?'✓ Normal':cls==='danger'?'⚠ Élevé':cls==='info'?'▼ Bas':'—'}</span></td></tr>`;
+  }).join('');
+
+  // Engins
+  const re=document.getElementById('ratio-engin-tbody');
+  if(re)re.innerHTML=ratios.filter(r=>r.type_mesure==='HEURES').map(r=>{
+    const ref=r.ratio_reference_lh;const ecart=r.ratio_moyen&&ref?((r.ratio_moyen-ref)/ref*100).toFixed(1):null;
+    const cls=!ecart?'neutral':Math.abs(ecart)>20?(parseFloat(ecart)>0?'danger':'info'):'ok';
+    return `<tr>
+      <td><strong class="mono" style="color:var(--accent)">${r.code_equip}</strong></td>
+      <td style="color:var(--text2);font-size:11.5px">${r.type_engin}</td><td style="color:var(--text2)">${r.marque||'—'}</td>
+      <td class="mono" style="color:var(--text3)">${ref?ref+' L/h':'—'}</td>
+      <td>${r.ratio_moyen?`<span class="ratio-badge ratio-${cls}">${r.ratio_moyen} L/h</span>`:'<span class="ratio-badge ratio-neutral">—</span>'}</td>
+      <td style="color:${ecart?Math.abs(ecart)>20?(parseFloat(ecart)>0?'var(--red)':'var(--blue)'):'var(--green)':'var(--text3)'};font-family:'DM Mono';font-size:10.5px">${ecart?(parseFloat(ecart)>0?'+':'')+ecart+'%':'—'}</td>
+      <td class="mono" style="color:var(--text3);font-size:10.5px">${r.total_delta?r.total_delta.toFixed(0)+' h':'—'}</td>
+      <td><strong>${r.total_litres?.toLocaleString('fr-FR')||0} L</strong></td>
+      <td><span class="ratio-badge ratio-${cls}">${cls==='ok'?'✓ Normal':cls==='danger'?'⚠ Élevé':cls==='info'?'▼ Bas':'—'}</span></td></tr>`;
+  }).join('');
+
+  // Véhicules
+  const rv=document.getElementById('ratio-veh-tbody');
+  if(rv)rv.innerHTML=ratios.filter(r=>r.type_mesure==='KM').map(r=>{
+    const ref=r.ratio_reference_l100;const ecart=r.ratio_moyen&&ref?((r.ratio_moyen-ref)/ref*100).toFixed(1):null;
+    const cls=!ecart?'neutral':Math.abs(ecart)>20?(parseFloat(ecart)>0?'danger':'info'):'ok';
+    return `<tr>
+      <td><strong class="mono" style="color:var(--accent)">${r.code_equip}</strong></td>
+      <td style="color:var(--text2);font-size:11.5px">${r.type_engin}</td><td style="color:var(--text2)">${r.marque||'—'}</td>
+      <td class="mono" style="color:var(--text3)">${ref?ref+' L/100km':'—'}</td>
+      <td>${r.ratio_moyen?`<span class="ratio-badge ratio-${cls}">${r.ratio_moyen} L/100km</span>`:'<span class="ratio-badge ratio-neutral">—</span>'}</td>
+      <td style="color:${ecart?Math.abs(ecart)>20?(parseFloat(ecart)>0?'var(--red)':'var(--blue)'):'var(--green)':'var(--text3)'};font-family:'DM Mono';font-size:10.5px">${ecart?(parseFloat(ecart)>0?'+':'')+ecart+'%':'—'}</td>
+      <td class="mono" style="color:var(--text3);font-size:10.5px">${r.total_delta?r.total_delta.toFixed(0)+' km':'—'}</td>
+      <td><strong>${r.total_litres?.toLocaleString('fr-FR')||0} L</strong></td>
+      <td><span class="ratio-badge ratio-${cls}">${cls==='ok'?'✓ Normal':cls==='danger'?'⚠ Élevé':cls==='info'?'▼ Bas':'—'}</span></td></tr>`;
+  }).join('');
+
+  // Dérive
+  const dl2=document.getElementById('derive-list');
+  if(dl2){
+    const drifts=withEcart.filter(r=>Math.abs(r.ecart)>20);
+    dl2.innerHTML=drifts.map(r=>{
+      const unite=r.type_mesure==='HEURES'?'L/h':'L/100km';
+      const ref=r.type_mesure==='HEURES'?r.ratio_reference_lh:r.ratio_reference_l100;
+      const cls=r.ecart>0?'danger':'info';
+      const icon=r.ecart>0?'🔴':'🔵';
+      return `<div class="alert-item ${cls}"><div class="alert-icon">${icon}</div>
+        <div class="alert-body">
+          <div class="alert-title">${r.code_equip} — ${r.type_engin} ${r.marque||''}</div>
+          <div class="alert-desc">Ratio observé : <strong>${r.ratio_moyen} ${unite}</strong> · Référence : ${ref} ${unite} · Écart : <strong>${r.ecart>0?'+':''}${r.ecart.toFixed(1)}%</strong></div>
+          <div class="alert-desc">${r.nb_anomalies} anomalie(s) sur ${r.nb_distributions} distributions</div>
+          <div class="alert-time">${r.ecart>0?'Surconsommation — Vérification moteur recommandée':'Sous-consommation — Vérifier données saisies'}</div>
+        </div></div>`;
+    }).join('') || '<div style="text-align:center;padding:20px;color:var(--text3)">✅ Aucune dérive détectée</div>';
+  }
+}
+
+// ══ ALERTES ══
+function renderAlertes() {
+  const pannes=S.pannes.length;
+  const ratioA=S.alertes.filter(a=>['RATIO_ELEVE','RATIO_BAS','ANOMALIE_CARBURANT'].includes(a.type_alerte)).length;
+  const stockA=S.alertes.filter(a=>a.type_alerte==='STOCK_BAS').length;
+  const stockBas=S.cuves.filter(c=>c.stock_actuel<c.seuil_alerte).length;
+  setText('ak-pannes',pannes);
+  setText('ak-ratio',ratioA);
+  setText('ak-stock',stockBas||stockA);
+  setText('ak-ok',S.alertes.filter(a=>a.resolue).length||'8');
+  setText('badge-alertes',S.alertes.length+pannes);
+
+  const el=document.getElementById('all-alerts');if(!el)return;
+  const items=[
+    ...S.pannes.map(p=>({type:'danger',icon:'🔴',titre:`${p.code} — PANNE`,msg:`${p.type_engin} ${p.marque||''} · ${p.affectation||'—'} · ${p.observation||''}`,time:'Actif'})),
+    ...S.cuves.filter(c=>c.stock_actuel<c.seuil_alerte).map(c=>({type:'warn',icon:'🟡',titre:`${c.code} — Stock bas (${Math.round(c.stock_actuel/c.capacite*100)}%)`,msg:`${c.stock_actuel.toLocaleString('fr-FR')} L restants / ${c.capacite.toLocaleString('fr-FR')} L`,time:"Aujourd'hui"})),
+    ...S.alertes.map(a=>({type:a.niveau==='DANGER'?'danger':a.niveau==='WARN'?'warn':'info',icon:a.niveau==='DANGER'?'🔴':a.niveau==='WARN'?'🟡':'🔵',titre:a.titre,msg:a.message||'',time:new Date(a.created_at).toLocaleDateString('fr-FR')})),
+  ];
+  el.innerHTML=items.map(a=>`
+    <div class="alert-item ${a.type}"><div class="alert-icon">${a.icon}</div>
+    <div class="alert-body"><div class="alert-title">${a.titre}</div>
+    <div class="alert-desc">${a.msg}</div><div class="alert-time">${a.time}</div></div></div>`).join('')
+    ||'<div style="text-align:center;padding:20px;color:var(--text3)">✅ Aucune alerte</div>';
+}
+
+// ══ APPROS ══
+function renderAppros(appros) {
+  const t=document.getElementById('appro-tbody');if(!t)return;
+  t.innerHTML=appros.map(a=>`<tr>
+    <td class="mono" style="color:var(--text3);font-size:10.5px">${fr(a.date_reception)}</td>
+    <td><span class="badge b-info">${a.cuves?.code||'—'}</span></td>
+    <td class="mono">${a.compteur_camion||'—'}</td>
+    <td><strong style="color:var(--green)">${(a.quantite||0).toLocaleString('fr-FR')} L</strong></td>
+    <td style="color:var(--text3)">${(a.stock_avant||0).toLocaleString('fr-FR')} L</td>
+    <td style="color:var(--text2)">${(a.stock_apres||0).toLocaleString('fr-FR')} L</td>
+    <td style="font-size:11.5px">${a.receptionne_par||'—'}</td>
+    <td style="color:var(--text3);font-size:10.5px">${a.profils?.nom||'—'}</td></tr>`).join('');
+}
+
+// ══ RAPPORT ══
+function generateReport() {
+  const type=g('rpt-type'),cat=g('rpt-cat'),etat=g('rpt-etat');
+  let d=[...S.equips];
+  if(cat)d=d.filter(e=>e.categories?.code===cat);
+  if(etat)d=d.filter(e=>e.etat===etat);
+  const out=document.getElementById('report-out'),body=document.getElementById('report-body');
+  document.getElementById('report-title').textContent='📄 '+type+' — LAKOTA-GUEYO · '+new Date().toLocaleDateString('fr-FR');
+  out.style.display='block';
+  body.innerHTML=`<p style="font-size:10.5px;color:var(--text3);margin-bottom:10px">Dir. Projet: M. TIHA JEAN-MARC · ERG.GM 02 · ${d.length} équipement(s) · BON: ${d.filter(e=>e.etat==='BON').length} · PANNE: ${d.filter(e=>e.etat==='PANNE').length}</p>
+    <table style="width:100%;border-collapse:collapse;font-size:11px">
+      <thead><tr>${['#','Code','Type','Marque','Catégorie','Date Mob.','Affectation','État','Ratio Réf.','Cpt. actuel','Observation'].map(h=>`<th style="padding:5px 8px;border:1px solid var(--border);background:var(--bg3);color:var(--text3)">${h}</th>`).join('')}</tr></thead>
+      <tbody>${d.map(e=>{
+        const tm=e.categories?.type_mesure;
+        const ref=tm==='HEURES'?(e.ratio_reference_lh?e.ratio_reference_lh+' L/h':'—'):tm==='KM'?(e.ratio_reference_l100?e.ratio_reference_l100+' L/100km':'—'):'—';
+        const cpt=e.compteur_actuel?(e.compteur_actuel.toLocaleString('fr-FR')+(tm==='HEURES'?' h':tm==='KM'?' km':'')):'—';
+        return `<tr>${[e.numero||'—',e.code,e.type_engin,e.marque||'—',e.categories?.code?.replace('_',' ')||'—',e.date_mobilisation?fr(e.date_mobilisation):'—',e.affectation||'—',e.etat,ref,cpt,e.observation||'—'].map((c,i)=>`<td style="padding:4px 8px;border:1px solid var(--border);${i===7?(e.etat==='PANNE'?'color:var(--red)':'color:var(--green)'):''}font-size:10.5px">${c}</td>`).join('')}</tr>`;
+      }).join('')}</tbody></table>`;
+  toast('Rapport généré ✓');
+}
+
+function exportCSV() {
+  const cat=g('rpt-cat'),etat=g('rpt-etat');
+  let d=[...S.equips];
+  if(cat)d=d.filter(e=>e.categories?.code===cat);
+  if(etat)d=d.filter(e=>e.etat===etat);
+  const rows=[['N°','Code','Type','Marque','Catégorie','Date Mob.','Affectation','État','Ratio Ref. L/h','Ratio Ref. L/100km','Cpt. actuel','Observation'],
+    ...d.map(e=>[e.numero,e.code,e.type_engin,e.marque,e.categories?.code,e.date_mobilisation,e.affectation,e.etat,e.ratio_reference_lh,e.ratio_reference_l100,e.compteur_actuel,e.observation])];
+  const csv=rows.map(r=>r.map(v=>'"'+(v||'').toString().replace(/"/g,'""')+'"').join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));
+  a.download='lakota_parc_'+new Date().toISOString().split('T')[0]+'.csv';a.click();
+  toast('Export CSV ✓');
+}
+
+// ══ MODALS ══
+function openAddModal(){
+  const p=document.querySelector('.page.active').id.replace('page-','');
+  const m={parc:'materiel',pannes:'maint',mouvements:'mvt',appros:'appro',gasoil:'appro',ratios:'appro'};
+  openModal('modal-'+(m[p]||'materiel'));
+}
+function openModalMateriel(){openModal('modal-materiel');}
+function openModalMaint(){populateSel('mn-code');openModal('modal-maint');}
+function openModalMvt(){populateSel('mv-code');openModal('modal-mvt');}
+function openModalAppro(){populateCuveSelects();openModal('modal-appro');}
+function openModal(id){
+  document.getElementById(id).classList.add('open');
+  const t=new Date().toISOString().split('T')[0];
+  document.querySelectorAll('#'+id+' input[type=date]').forEach(i=>i.value=t);
+}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+window.addEventListener('click',e=>{if(e.target.classList.contains('modal-overlay'))e.target.classList.remove('open');});
+
+function populateSel(id){
+  const el=document.getElementById(id);if(!el)return;
+  el.innerHTML='<option value="">Sélectionner…</option>'+S.equips.map(e=>`<option value="${e.id}">${e.code} — ${e.type_engin}</option>`).join('');
+}
+function populateCuveSelects(){
+  ['d-cuve','ap-cuve'].forEach(id=>{
+    const el=document.getElementById(id);if(!el)return;
+    el.innerHTML=S.cuves.map(c=>`<option value="${c.id}">${c.code} (${c.stock_actuel.toLocaleString('fr-FR')} L)</option>`).join('');
+  });
+  // Also populate engin select in distribution form
+  const dc=document.getElementById('d-code');if(dc){
+    dc.innerHTML='<option value="">Sélectionner…</option>'+S.equips.filter(e=>e.categories?.type_mesure!=='AUCUN').map(e=>`<option value="${e.id}">${e.code} — ${e.type_engin} [${e.categories?.type_mesure==='HEURES'?'L/h':'L/100km'}]</option>`).join('');
+  }
+}
+
+// ══ UI HELPERS ══
+function showApp(p){
+  document.getElementById('auth-screen').style.display='none';
+  document.getElementById('sidebar').style.display='flex';
+  document.getElementById('main').style.display='flex';
+  const nom=p?.nom||S.user?.email?.split('@')[0]||'?';
+  const role=p?.role||'operateur';
+  setText('u-name',nom);setText('u-role',role.charAt(0).toUpperCase()+role.slice(1));
+  document.getElementById('u-av').textContent=nom.charAt(0).toUpperCase();
+  document.getElementById('sidebar-date').textContent='Point du '+new Date().toLocaleDateString('fr-FR');
+  setSyncSt('ok');
+  populateCuveSelects();
+}
+function showAuth(){document.getElementById('auth-screen').style.display='flex';document.getElementById('sidebar').style.display='none';document.getElementById('main').style.display='none';}
+function showLoad(){document.getElementById('loading').style.display='flex';}
+function hideLoad(){document.getElementById('loading').style.display='none';}
+function authErr(m){const e=document.getElementById('auth-err');e.textContent=m;e.classList.add('show');}
+function authOk(m){const e=document.getElementById('auth-ok');e.textContent=m;e.classList.add('show');}
+function hideAuthMsg(){['auth-err','auth-ok'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('show');});}
+function setText(id,v){const el=document.getElementById(id);if(el)el.textContent=v;}
+function g(id){return(document.getElementById(id)?.value||'').trim();}
+function fr(d){if(!d)return'—';try{if(d.includes&&d.includes('/'))return d;return new Date(d).toLocaleDateString('fr-FR');}catch(e){return d;}}
+function setSyncSt(s){const el=document.getElementById('sync-st');if(!el)return;el.textContent=s==='load'?'⟳ Synchronisation…':s==='ok'?'✓ Synchronisé':'⚠ Erreur';el.className='hdr-sync'+(s==='load'?' loading':'');}
+function toast(msg,type='ok'){const t=document.getElementById('toast');document.getElementById('toast-msg').textContent=msg;t.className='show '+(type==='ok'?'ok':'err');setTimeout(()=>t.className='',3200);}
+function setText(id,v){const el=document.getElementById(id);if(el)el.textContent=v;}
+</script>
+</body>
+</html>
